@@ -1,6 +1,14 @@
-export default function App() {
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import ForensicDashboard from './pages/ForensicDashboard'
+
+function App() {
   return (
-    <div className="App">
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<ForensicDashboard />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
+
+export default App
