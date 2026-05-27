@@ -1,12 +1,10 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import ForensicDashboard from './pages/ForensicDashboard'
+import { BrowserRouter } from 'react-router-dom'
+import AppRoutes from '@/routes'
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<ForensicDashboard />} />
-      </Routes>
+      <AppRoutes />
     </BrowserRouter>
   )
 }
