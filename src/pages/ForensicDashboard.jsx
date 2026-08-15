@@ -100,6 +100,12 @@ function ForensicDashboard() {
           text: 'Unregistered Asset',
           className: 'text-amber-600 bg-amber-50 border-amber-200'
         };
+      case 'AMBIGUOUS_MATCH':
+        return {
+          icon: <AlertTriangle className="w-5 h-5" />,
+          text: 'Ambiguous Match - Needs Manual Review',
+          className: 'text-orange-600 bg-orange-50 border-orange-200'
+        };
       default:
         return {
           icon: <Shield className="w-5 h-5" />,
@@ -119,10 +125,21 @@ function ForensicDashboard() {
     setExpandedResults(newExpanded);
   };
 
-  const getELAClassification = (score) => {
-    if (score > 15) return { text: 'High Manipulation', className: 'text-red-600 bg-red-50' };
-    if (score > 8) return { text: 'Medium Manipulation', className: 'text-amber-600 bg-amber-50' };
-    return { text: 'Low Manipulation', className: 'text-emerald-600 bg-emerald-50' };
+  // Backend now returns `ela_score_normalized` (0-100, correctly scaled).
+  // The raw `ela_score` field is 0-255 and was previously being compared
+  // against these thresholds directly, which is why almost everything used
+  // to read as "High Manipulation". Prefer the normalized field; fall back
+  // to converting the raw score if an older backend response is received.
+  const getELAClassification = (file) => {
+    const edit = file?.forensics?.edit_detection || {};
+    const score =
+      edit.ela_score_normalized !== undefined
+        ? edit.ela_score_normalized
+        : ((edit.ela_score || 0) / 255) * 100;
+
+    if (score > 20) return { text: 'High Manipulation', className: 'text-red-600 bg-red-50', score };
+    if (score > 10) return { text: 'Medium Manipulation', className: 'text-amber-600 bg-amber-50', score };
+    return { text: 'Low Manipulation', className: 'text-emerald-600 bg-emerald-50', score };
   };
 
   return (
@@ -392,7 +409,7 @@ function ForensicDashboard() {
                     const file = result.files[0];
                     if (!file) return null;
                     const status = getVerificationStatus(file.verification_status);
-                    const elaClass = getELAClassification(file.forensics?.edit_detection?.ela_score || 0);
+                    const elaClass = getELAClassification(file);
 
                     return (
                       <div key={index} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -425,7 +442,8 @@ function ForensicDashboard() {
                               <div className="p-2 bg-slate-50 rounded-lg">
                                 <p className="font-medium text-slate-700 mb-1">ELA Score</p>
                                 <p className="text-lg font-bold text-slate-900">
-                                  {file.forensics?.edit_detection?.ela_score || 'N/A'}
+                                  {file.forensics?.edit_detection?.ela_score_normalized ?? 'N/A'}
+                                  <span className="text-xs font-normal text-slate-400">/100</span>
                                 </p>
                                 <p className={`text-xs font-medium ${elaClass.className} inline-block px-2 py-0.5 rounded mt-1`}>
                                   {elaClass.text}
@@ -439,10 +457,28 @@ function ForensicDashboard() {
                               </div>
                             </div>
 
-                            {file.matched_asset && (
+                            {file.matched_asset && !file.matched_asset.candidates && (
                               <div className="mt-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
                                 <p className="font-medium text-emerald-800 text-xs mb-1">Matched Original Asset</p>
                                 <p className="text-xs text-emerald-700">{file.matched_asset.original_filename}</p>
+                              </div>
+                            )}
+
+                            {file.matched_asset?.candidates && (
+                              <div className="mt-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <p className="font-medium text-orange-800 text-xs mb-1">
+                                  Multiple similar originals found - cannot auto-resolve
+                                </p>
+                                <ul className="text-xs text-orange-700 list-disc list-inside space-y-0.5">
+                                  {file.matched_asset.candidates.map((c) => (
+                                    <li key={c.original_asset_id}>
+                                      {c.original_filename} (distance: {c.phash_distance})
+                                    </li>
+                                  ))}
+                                </ul>
+                                <p className="text-xs text-orange-600 mt-1">
+                                  Re-verify against a specific registered original to resolve.
+                                </p>
                               </div>
                             )}
                           </div>
@@ -520,7 +556,7 @@ function ForensicDashboard() {
                       <div className="flex justify-between items-center">
                         <span className="text-slate-600">ELA Score</span>
                         <span className="font-mono font-bold text-slate-900">
-                          {selectedEvidence.files[0].forensics.edit_detection?.ela_score || 'N/A'}
+                          {selectedEvidence.files[0].forensics.edit_detection?.ela_score_normalized ?? 'N/A'}/100
                         </span>
                       </div>
 
