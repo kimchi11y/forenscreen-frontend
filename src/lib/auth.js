@@ -55,10 +55,38 @@ export const fetchSession = () => call((client) => client.getSession());
  *
  * The backend verifies this against Neon's JWKS rather than trusting anything
  * the client claims, so an unverified session here buys no access.
+ *
+ * Cached until shortly before it expires: tokens live 15 minutes and every API
+ * call would otherwise pay for another round trip to mint one.
  */
+let cachedToken = null;
+let cachedExpiry = 0;
+
+function expiresAt(jwt) {
+  try {
+    const payload = jwt.split(".")[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    return Number(JSON.parse(json).exp) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function fetchToken() {
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (cachedToken && cachedExpiry > nowSeconds + 30) return cachedToken;
+
   const data = await call((client) => client.token());
-  return data?.token ?? null;
+  const token = data?.token ?? null;
+  cachedToken = token;
+  cachedExpiry = token ? expiresAt(token) : 0;
+  return token;
+}
+
+/** Drop the cached token, e.g. after signing out. */
+export function clearCachedToken() {
+  cachedToken = null;
+  cachedExpiry = 0;
 }
 
 /**
@@ -109,6 +137,7 @@ export function useAuth() {
     try {
       await signOutUser();
     } finally {
+      clearCachedToken();
       setUser(null);
     }
   }, []);

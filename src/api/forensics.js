@@ -4,9 +4,33 @@
  * Every call returns parsed JSON and throws an Error carrying the server's
  * `detail` message where one is available, so callers can surface something
  * more useful than "request failed".
+ *
+ * Requests carry a bearer token when one is available. The backend verifies it
+ * against Neon's JWKS and uses it to attribute custody entries to a real user;
+ * without it the request is simply anonymous. An invalid token is rejected with
+ * 401 rather than silently downgraded, so a transport failure is visible.
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+let authTokenProvider = null;
+
+/** Register the function that mints an API token (see lib/auth.js). */
+export function setAuthTokenProvider(provider) {
+  authTokenProvider = provider;
+}
+
+async function authHeaders() {
+  if (!authTokenProvider) return {};
+  try {
+    const token = await authTokenProvider();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    // A failure to mint a token must not break endpoints that also work
+    // anonymously; the request proceeds unattributed.
+    return {};
+  }
+}
 
 async function parse(response) {
   if (response.ok) {
@@ -22,6 +46,10 @@ async function parse(response) {
   throw new Error(detail);
 }
 
+async function get(path) {
+  return parse(await fetch(`${API_BASE_URL}${path}`, { headers: await authHeaders() }));
+}
+
 export const forensicsAPI = {
   baseUrl: API_BASE_URL,
 
@@ -32,6 +60,7 @@ export const forensicsAPI = {
     form.append("file", file);
     const response = await fetch(`${API_BASE_URL}/upload-asset/`, {
       method: "POST",
+      headers: await authHeaders(),
       body: form,
     });
     return parse(response);
@@ -40,8 +69,7 @@ export const forensicsAPI = {
   /** Registered originals, newest first. */
   async listAssets({ limit = 100, offset = 0 } = {}) {
     const query = new URLSearchParams({ limit, offset });
-    const response = await fetch(`${API_BASE_URL}/assets?${query}`);
-    return parse(response);
+    return get(`/assets?${query}`);
   },
 
   /**
@@ -61,16 +89,52 @@ export const forensicsAPI = {
     }
     const response = await fetch(`${API_BASE_URL}/upload`, {
       method: "POST",
+      headers: await authHeaders(),
       body: form,
     });
     return parse(response);
   },
 
+  /** Recent comparisons, newest first. */
+  listChecks({ limit = 50, offset = 0 } = {}) {
+    return get(`/checks?${new URLSearchParams({ limit, offset })}`);
+  },
+
+  /** One stored comparison - lets a result survive a page reload. */
+  getCheck(checkId) {
+    return get(`/checks/${checkId}`);
+  },
+
   /** Rectangles where the evidence differs from the original it matched. */
-  async getAlteredRegions(fileId, originalAssetId) {
-    const query = new URLSearchParams({ original_asset_id: originalAssetId });
-    const response = await fetch(`${API_BASE_URL}/evidence/${fileId}/altered-regions?${query}`);
-    return parse(response);
+  getAlteredRegions(fileId, originalAssetId) {
+    return get(
+      `/evidence/${fileId}/altered-regions?${new URLSearchParams({ original_asset_id: originalAssetId })}`,
+    );
+  },
+
+  /** Where does this evidence differ, in the same call shape as above. */
+  getDifferenceMap(fileId, originalAssetId) {
+    return this.getAlteredRegions(fileId, originalAssetId);
+  },
+
+  /** The handling history of one asset or one piece of evidence. */
+  getCustody(subjectType, subjectId) {
+    return get(`/custody/${subjectType}/${subjectId}`);
+  },
+
+  /** Recompute the hash chain and report whether it is intact. */
+  verifyCustody(subjectType, subjectId) {
+    return get(`/custody/${subjectType}/${subjectId}/verify`);
+  },
+
+  /** Compare a digest against both the registry and the chain. */
+  verifyAnchor(sha256) {
+    return get(`/verify-anchor/${sha256}`);
+  },
+
+  /** Who the API believes we are. */
+  whoami() {
+    return get("/me");
   },
 
   /** URL of the evidence image with the differing pixels tinted. */
