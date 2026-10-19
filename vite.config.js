@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from "path"
 
 // https://vite.dev/config/
@@ -10,7 +11,13 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
-    plugins: [react(), tailwindcss()],
+    // Local dev runs over HTTPS on purpose. Neon Auth names its session cookie
+    // __Secure-neon-auth.session_token, and the __Secure- prefix is refused on
+    // an http:// origin even though localhost counts as a secure context - the
+    // session is then never stored and every sign-in bounces straight back to
+    // the login page. Real deployments are on HTTPS already; this brings dev
+    // into line. The self-signed certificate triggers a one-time browser warning.
+    plugins: [react(), tailwindcss(), basicSsl()],
     resolve: {
       alias: {
         "@": path.resolve("./src"),
