@@ -1,4 +1,5 @@
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   Folder,
@@ -8,9 +9,11 @@ import {
   Scale,
   Search,
   Settings,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const WORKSPACE_NAV = [
@@ -45,12 +48,60 @@ function NavItem({ to, label, Icon, isPublic }) {
   );
 }
 
+/** First letters of the first two words, else the first two characters. */
+function initialsOf(value) {
+  const source = String(value ?? "").trim();
+  if (!source) return "?";
+  const words = source.split(/\s+/).filter(Boolean);
+  const raw =
+    words.length > 1 ? `${words[0][0]}${words[1][0]}` : source.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2);
+  return raw.slice(0, 2).toUpperCase() || "?";
+}
+
 /**
  * The authenticated application frame: fixed sidebar, sticky top bar, content
  * column. Pages render their own heading inside it via <PageHeader>.
  */
 export default function AppShell() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { user, loading, configured, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  if (loading) {
+    return (
+      <div
+        className="grid min-h-screen place-items-center bg-background"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <span className="size-7 animate-spin rounded-full border-2 border-border border-t-primary" />
+          <span className="text-sm">Checking your session…</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Deliberately not redirecting when unconfigured: that is a setup problem,
+  // not a signed-out state, so keep the app inspectable and say so plainly.
+  if (configured && !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const displayName = user?.name || user?.email || "Signed in";
+  const displayEmail = user?.email || "";
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } catch {
+      // signOut() should never throw; if it somehow does, still leave the shell.
+    } finally {
+      navigate("/login", { replace: true });
+    }
+  }
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[248px_1fr]">
@@ -84,16 +135,38 @@ export default function AppShell() {
         </nav>
 
         <div className="mt-auto flex items-center gap-2.5 rounded-[0.5625rem] border-t border-sidebar-border p-2 pt-3">
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-            AR
-          </span>
-          <span className="min-w-0 flex-1 leading-tight">
-            <span className="block truncate text-[0.8125rem] font-medium">Aisha Rahman</span>
-            <span className="block truncate text-[0.6875rem] text-muted-foreground">
-              Personal account
+          {user?.image ? (
+            <img
+              src={user.image}
+              alt=""
+              className="size-7 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+            >
+              {initialsOf(displayName)}
             </span>
+          )}
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="block truncate text-[0.8125rem] font-medium">{displayName}</span>
+            {displayEmail && (
+              <span className="block truncate text-[0.6875rem] text-muted-foreground">
+                {displayEmail}
+              </span>
+            )}
           </span>
-          <LogOut className="size-4 shrink-0 text-muted-foreground" />
+          <button
+            type="button"
+            aria-label="Sign out"
+            title="Sign out"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="grid size-7 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </aside>
 
@@ -130,6 +203,22 @@ export default function AppShell() {
         </header>
 
         <main className="mx-auto w-full max-w-[1240px] px-5 pb-16 pt-7 lg:px-6">
+          {!configured && (
+            <div
+              role="alert"
+              className="mb-6 flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-destructive"
+            >
+              <ShieldAlert className="mt-0.5 size-5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Authentication is not configured</p>
+                <p className="text-sm text-destructive/80">
+                  <code className="font-mono text-[0.8125rem]">VITE_NEON_AUTH_URL</code> is missing,
+                  so sign-in and sign-out are unavailable. This page is shown for development
+                  only; no account is signed in.
+                </p>
+              </div>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

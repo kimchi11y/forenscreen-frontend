@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Eye, EyeOff, Loader2, Lock, ShieldCheck } from "lucide-react"
+import { Eye, EyeOff, Loader2, Lock, ShieldCheck, TriangleAlert } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -8,9 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/lib/auth"
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { user, loading, configured, signIn } = useAuth()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -19,7 +21,14 @@ function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  function handleSubmit(event) {
+  // Someone who already has a session has no business on the login screen.
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true })
+    }
+  }, [loading, user, navigate])
+
+  async function handleSubmit(event) {
     event.preventDefault()
     setError("")
 
@@ -37,13 +46,16 @@ function LoginPage() {
     }
 
     setIsLoading(true)
-
-    // No auth service is wired up yet — this stands in for the real sign-in
-    // request so the screen still behaves like the finished flow.
-    setTimeout(() => {
+    try {
+      await signIn({ email: email.trim(), password })
+      navigate("/dashboard", { replace: true })
+    } catch (signInError) {
+      setError(
+        signInError?.message || "We couldn't sign you in. Please try again."
+      )
+    } finally {
       setIsLoading(false)
-      navigate("/dashboard")
-    }, 900)
+    }
   }
 
   return (
@@ -68,6 +80,28 @@ function LoginPage() {
             <p className="mt-1 text-sm text-muted-foreground">Sign in to your evidence registry.</p>
           </div>
 
+          {loading ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center" role="status">
+              <Loader2 className="size-5 animate-spin text-muted-foreground" aria-hidden="true" />
+              <p className="text-sm text-muted-foreground">Checking your session…</p>
+            </div>
+          ) : !configured ? (
+            <div
+              role="alert"
+              className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+            >
+              <p className="flex items-center gap-2 text-sm font-medium text-destructive">
+                <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
+                Authentication is not configured
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Sign-in is unavailable until{" "}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">VITE_NEON_AUTH_URL</code> is
+                set in <code className="rounded bg-muted px-1 py-0.5 text-xs">frontend/.env.local</code>,
+                then the dev server is restarted.
+              </p>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email" className="text-[0.8125rem]">
@@ -94,10 +128,12 @@ function LoginPage() {
                 </Label>
                 <button
                   type="button"
-                  title="Password reset isn't wired up yet"
+                  aria-disabled="true"
+                  title="Password reset isn't available yet — contact support to reset your password."
                   className="text-xs font-medium text-primary hover:underline"
                 >
                   Forgot password?
+                  <span className="sr-only"> (password reset isn't available yet)</span>
                 </button>
               </div>
               <div className="relative">
@@ -204,6 +240,7 @@ function LoginPage() {
               </p>
             </div>
           </form>
+          )}
         </Card>
 
         <p className="mt-5 text-center text-[0.8125rem]">

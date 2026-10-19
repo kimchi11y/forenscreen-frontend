@@ -1,12 +1,13 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { ArrowRight, Check, Hash, ShieldCheck, Trash2 } from "lucide-react"
+import { ArrowRight, Check, Hash, Loader2, MailCheck, ShieldCheck, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { fetchSession, useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
 const STRENGTH_LABELS = ["", "Weak", "Good", "Strong"]
@@ -44,6 +45,7 @@ function Field({ id, label, hint, error, children }) {
 
 function SignupPage() {
   const navigate = useNavigate()
+  const { configured, signUp } = useAuth()
 
   const [displayName, setDisplayName] = useState("")
   const [email, setEmail] = useState("")
@@ -51,17 +53,21 @@ function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState("")
+  const [submitting, setSubmitting] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState("")
 
   const level = strengthOf(password)
   const mismatch = confirmPassword.length > 0 && confirmPassword !== password
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
+    if (submitting) return
 
+    const address = email.trim()
     const problem =
       !displayName.trim()
         ? "Add a display name — it appears on the evidence you register."
-        : !/^\S+@\S+\.\S+$/.test(email.trim())
+        : !/^\S+@\S+\.\S+$/.test(address)
           ? "Enter a valid email address."
           : password.length < 8
             ? "Use at least 8 characters for your password."
@@ -76,7 +82,39 @@ function SignupPage() {
     setError(problem)
     if (problem) return
 
-    navigate("/dashboard")
+    setSubmitting(true)
+    try {
+      const result = await signUp({ email: address, password, name: displayName.trim() })
+
+      // Managed Auth returns a token when it signs the user straight in. When
+      // email verification is required there is no session yet, so the session
+      // is checked as well rather than treating "no token" as a failure.
+      if (result?.token || result?.session) {
+        navigate("/dashboard", { replace: true })
+        return
+      }
+
+      let session = null
+      try {
+        session = await fetchSession()
+      } catch {
+        // Session probes are best-effort; signup itself already succeeded.
+      }
+      if (session?.user) {
+        navigate("/dashboard", { replace: true })
+        return
+      }
+
+      setPendingEmail(address)
+    } catch (err) {
+      setError(
+        err instanceof Error && err.message
+          ? err.message
+          : "We couldn't create your account. Please try again.",
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -103,10 +141,47 @@ function SignupPage() {
         </Link>
 
         <Card className="gap-0 shadow-sm [--card-spacing:1.75rem]">
-          <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">Free for individuals. No card required.</p>
+          {pendingEmail ? (
+            <div className="flex flex-col gap-4">
+              <span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
+                <MailCheck className="size-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  We sent a verification link to{" "}
+                  <span className="font-medium break-all text-foreground">{pendingEmail}</span>. Open it to
+                  verify your address and finish setting up your account.
+                </p>
+              </div>
+              <p className="rounded-lg border border-border bg-muted/40 px-3.5 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                We use a shared sender in development, so this email may land in spam — check there if it
+                hasn&apos;t arrived in a minute.
+              </p>
+              <Button asChild variant="outline" size="lg" className="h-10 w-full">
+                <Link to="/login">Back to sign in</Link>
+              </Button>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+              <p className="mt-1.5 text-sm text-muted-foreground">Free for individuals. No card required.</p>
 
-          <form onSubmit={handleSubmit} noValidate className="mt-[22px] flex flex-col gap-[18px]">
+              {!configured ? (
+                <div
+                  role="alert"
+                  className="mt-[22px] flex flex-col gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3.5 text-sm"
+                >
+                  <p className="font-medium text-destructive">Authentication isn&apos;t configured</p>
+                  <p className="text-muted-foreground">
+                    This build is missing{" "}
+                    <code className="font-mono text-xs text-foreground">VITE_NEON_AUTH_URL</code>. Set it in{" "}
+                    <code className="font-mono text-xs text-foreground">frontend/.env.local</code> and restart
+                    the dev server to enable account creation.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} noValidate className="mt-[22px] flex flex-col gap-[18px]">
             <Field id="display-name" label="Display name" hint="This is what appears on evidence you register.">
               <Input
                 id="display-name"
@@ -114,6 +189,7 @@ function SignupPage() {
                 type="text"
                 autoComplete="name"
                 placeholder="Aisyah Rahman"
+                disabled={submitting}
                 value={displayName}
                 onChange={(event) => {
                   setDisplayName(event.target.value)
@@ -130,6 +206,7 @@ function SignupPage() {
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
+                disabled={submitting}
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value)
@@ -145,6 +222,7 @@ function SignupPage() {
                 name="password"
                 type="password"
                 autoComplete="new-password"
+                disabled={submitting}
                 value={password}
                 onChange={(event) => {
                   setPassword(event.target.value)
@@ -184,6 +262,7 @@ function SignupPage() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="Re-enter your password"
+                disabled={submitting}
                 value={confirmPassword}
                 aria-invalid={mismatch || undefined}
                 onChange={(event) => {
@@ -198,6 +277,7 @@ function SignupPage() {
               <Checkbox
                 id="terms"
                 checked={agreed}
+                disabled={submitting}
                 onCheckedChange={(checked) => {
                   setAgreed(checked === true)
                   setError("")
@@ -227,11 +307,29 @@ function SignupPage() {
               </p>
             )}
 
-            <Button type="submit" size="lg" className="h-10 w-full gap-2 text-[0.9375rem]">
-              Create account
-              <ArrowRight className="size-4" />
+            <Button
+              type="submit"
+              size="lg"
+              disabled={submitting}
+              aria-busy={submitting}
+              className="h-10 w-full gap-2 text-[0.9375rem]"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  Creating account…
+                </>
+              ) : (
+                <>
+                  Create account
+                  <ArrowRight className="size-4" />
+                </>
+              )}
             </Button>
-          </form>
+                </form>
+              )}
+            </>
+          )}
         </Card>
 
         <p className="mt-5 text-center text-sm text-muted-foreground">
