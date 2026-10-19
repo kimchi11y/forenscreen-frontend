@@ -25,6 +25,9 @@ export default function PublicLayout() {
             <a href="/#verdicts" className="transition-colors hover:text-foreground">
               Verdicts
             </a>
+            <Link to="/verify" className="transition-colors hover:text-foreground">
+              Verify a fingerprint
+            </Link>
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
@@ -57,6 +60,9 @@ export default function PublicLayout() {
           <span className="flex items-center gap-4">
             <Link to="/check" className="transition-colors hover:text-foreground">
               Check an image
+            </Link>
+            <Link to="/verify" className="transition-colors hover:text-foreground">
+              Verify a fingerprint
             </Link>
             <Link to="/login" className="transition-colors hover:text-foreground">
               Sign in

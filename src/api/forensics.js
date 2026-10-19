@@ -105,6 +105,15 @@ export const forensicsAPI = {
     return get(`/checks/${checkId}`);
   },
 
+  /** Record that a report was exported, and return its contents. */
+  async exportReport(checkId) {
+    const response = await fetch(`${API_BASE_URL}/checks/${checkId}/report`, {
+      method: "POST",
+      headers: await authHeaders(),
+    });
+    return parse(response);
+  },
+
   /** Rectangles where the evidence differs from the original it matched. */
   getAlteredRegions(fileId, originalAssetId) {
     return get(

@@ -7,6 +7,7 @@ import LandingPage from "@/pages/landing";
 import LoginPage from "@/pages/auth/login";
 import SignupPage from "@/pages/auth/signup";
 import PublicCheckPage from "@/pages/check";
+import VerifyPage from "@/pages/verify";
 
 import DashboardPage from "@/pages/dashboard";
 import RegistryPage from "@/pages/assets";
@@ -26,6 +27,7 @@ function AppRoutes() {
       <Route element={<PublicLayout />}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/check" element={<PublicCheckPage />} />
+        <Route path="/verify" element={<VerifyPage />} />
       </Route>
 
       <Route path="/login" element={<LoginPage />} />

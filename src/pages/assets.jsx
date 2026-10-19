@@ -4,17 +4,28 @@ import {
   AlertCircle,
   CheckCircle2,
   Copy,
+  ExternalLink,
+  History,
   Image as ImageIcon,
   Info,
   Loader2,
   MoreHorizontal,
   Scale,
+  ShieldAlert,
+  ShieldCheck,
   Upload,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +53,327 @@ function formatDate(value) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Custody entries should arrive in order, but the newest one decides the badge. */
+function newestEntry(entries) {
+  return (entries ?? []).reduce(
+    (newest, entry) => (!newest || (entry?.seq ?? 0) >= (newest?.seq ?? 0) ? entry : newest),
+    null,
+  );
+}
+
+function actorLabel(actor) {
+  if (!actor) return "—";
+  if (actor === "system") return "Registered by the service";
+  if (actor === "unauthenticated") return "Unverified";
+  if (actor.startsWith("user:")) return "Signed-in user";
+  return actor;
+}
+
+const ANCHOR_STATUSES = {
+  confirmed: {
+    label: "Anchored on-chain",
+    short: "Anchored",
+    pill: "border-success/30 bg-success/10 text-success",
+    dot: "bg-success",
+  },
+  pending: {
+    label: "Anchoring…",
+    short: "Anchoring",
+    pill: "border-warning/40 bg-warning/15 text-warning-foreground",
+    dot: "bg-warning",
+  },
+  failed: {
+    label: "Not anchored",
+    short: "Not anchored",
+    pill: "border-border bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/50",
+  },
+  not_required: {
+    label: "No anchor",
+    short: "No anchor",
+    pill: "border-border bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/50",
+  },
+};
+
+function anchorStatus(status) {
+  return ANCHOR_STATUSES[status] ?? ANCHOR_STATUSES.not_required;
+}
+
+function shortHash(hash) {
+  if (!hash) return "—";
+  return hash.length > 20 ? `${hash.slice(0, 10)}…${hash.slice(-6)}` : hash;
+}
+
+function AnchorPill({ status }) {
+  const presentation = anchorStatus(status);
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium",
+        presentation.pill,
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", presentation.dot)} aria-hidden="true" />
+      {presentation.label}
+    </span>
+  );
+}
+
+/** Muted until a custody summary arrives, then the newest anchor's state. */
+function AnchorIndicator({ summary }) {
+  if (!summary) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70"
+        title="Anchor status not loaded"
+      >
+        <span className="size-2 rounded-full bg-muted-foreground/30" aria-hidden="true" />—
+      </span>
+    );
+  }
+
+  if (summary.failed) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70"
+        title="Could not load the anchor status"
+      >
+        <span className="size-2 rounded-full bg-muted-foreground/30" aria-hidden="true" />—
+      </span>
+    );
+  }
+
+  const presentation = anchorStatus(summary.status);
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+      title={presentation.label}
+    >
+      <span className={cn("size-2 rounded-full", presentation.dot)} aria-hidden="true" />
+      {presentation.short}
+    </span>
+  );
+}
+
+function AssetProvenanceDialog({ asset, open, onOpenChange }) {
+  const [custody, setCustody] = useState(null);
+  const [verification, setVerification] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open || !asset?.id) return undefined;
+
+    let active = true;
+    setLoading(true);
+    setError("");
+    setCustody(null);
+    setVerification(null);
+
+    (async () => {
+      // Exactly two calls per open: the history, and the chain verification.
+      const [historyResult, verifyResult] = await Promise.allSettled([
+        forensicsAPI.getCustody("asset", asset.id),
+        forensicsAPI.verifyCustody("asset", asset.id),
+      ]);
+      if (!active) return;
+
+      if (historyResult.status === "fulfilled") {
+        setCustody(historyResult.value);
+      }
+      if (verifyResult.status === "fulfilled") {
+        setVerification(verifyResult.value);
+      }
+
+      const failures = [];
+      if (historyResult.status === "rejected") {
+        failures.push(
+          `the handling history (${historyResult.reason?.message || "request failed"})`,
+        );
+      }
+      if (verifyResult.status === "rejected") {
+        failures.push(
+          `the chain integrity check (${verifyResult.reason?.message || "request failed"})`,
+        );
+      }
+      if (failures.length > 0) {
+        setError(`We could not load ${failures.join(" or ")}.`);
+      }
+      setLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [open, asset?.id]);
+
+  const entries = [...(custody?.entries ?? [])].sort(
+    (a, b) => (a?.seq ?? 0) - (b?.seq ?? 0),
+  );
+  const anchor = newestEntry(entries)?.anchor?.status ?? null;
+  const verifiedEntries = verification?.entries ?? entries;
+  const problems = verification?.problems ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="pr-8">
+            {asset?.file_name ?? "Original"}
+          </DialogTitle>
+          <DialogDescription>
+            Handling history and on-chain anchor status for this original.
+          </DialogDescription>
+        </DialogHeader>
+
+        {asset && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>Registered {formatDate(asset.created_at)}</span>
+            <span className="font-mono" title={asset.sha256 || undefined}>
+              SHA-256 {shortHash(asset.sha256)}
+            </span>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading provenance…
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
+            {verification && (
+              <div
+                className={cn(
+                  "rounded-xl border p-3",
+                  verification.intact
+                    ? "border-success/30 bg-success/10"
+                    : "border-destructive/30 bg-destructive/10",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  {verification.intact ? (
+                    <ShieldCheck className="size-4 text-success" aria-hidden="true" />
+                  ) : (
+                    <ShieldAlert className="size-4 text-destructive" aria-hidden="true" />
+                  )}
+                  <span
+                    className={cn(
+                      "text-sm font-medium",
+                      verification.intact ? "text-success" : "text-destructive",
+                    )}
+                  >
+                    {verification.intact ? "Chain intact" : "Chain broken"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {verifiedEntries.length}{" "}
+                    {verifiedEntries.length === 1 ? "entry" : "entries"}
+                  </span>
+                </div>
+                {problems.length > 0 && (
+                  <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-xs text-destructive">
+                    {problems.map((problem, index) => (
+                      <li key={index}>
+                        {typeof problem === "string" ? problem : JSON.stringify(problem)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-medium">Handling history</h3>
+              {custody && <AnchorPill status={anchor} />}
+            </div>
+
+            {custody && entries.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No custody entries have been recorded for this original.
+              </p>
+            )}
+
+            {entries.length > 0 && (
+              <ol className="flex flex-col">
+                {entries.map((entry, index) => {
+                  const presentation = anchorStatus(entry?.anchor?.status);
+                  const txHash = entry?.anchor?.tx_hash;
+                  const last = index === entries.length - 1;
+                  return (
+                    <li
+                      key={entry?.id ?? `${entry?.seq ?? index}-${index}`}
+                      className="flex gap-3 pb-4 last:pb-0"
+                    >
+                      <div className="flex flex-col items-center">
+                        <span
+                          className={cn(
+                            "mt-1.5 size-2.5 shrink-0 rounded-full ring-4 ring-popover",
+                            presentation.dot,
+                          )}
+                          aria-hidden="true"
+                        />
+                        {!last && <span className="mt-1 w-px flex-1 bg-border" />}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                          <span className="text-sm font-medium">
+                            {entry?.label || entry?.event_type || "Event"}
+                          </span>
+                          <time
+                            className="text-xs tabular-nums text-muted-foreground"
+                            dateTime={entry?.occurred_at || undefined}
+                          >
+                            {formatDateTime(entry?.occurred_at)}
+                          </time>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {actorLabel(entry?.actor)}
+                        </span>
+                        {txHash && (
+                          <a
+                            href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex w-fit items-center gap-1 font-mono text-[0.6875rem] text-primary underline-offset-4 hover:underline"
+                            title={txHash}
+                          >
+                            {shortHash(txHash)}
+                            <ExternalLink className="size-3" aria-hidden="true" />
+                            <span className="sr-only">View transaction on Etherscan</span>
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 /** 32px thumbnail, falling back to a soft tile when the image won't load. */
@@ -72,6 +404,8 @@ export default function RegistryPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const copyTimerRef = useRef(null);
+  const anchorRequestsRef = useRef(new Set());
+  const mountedRef = useRef(true);
 
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +417,15 @@ export default function RegistryPage() {
   const [notice, setNotice] = useState(null); // { title, text }
   const [highlightId, setHighlightId] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState(null); // { text, failed }
+  const [detailAsset, setDetailAsset] = useState(null);
+  const [anchorSummaries, setAnchorSummaries] = useState({}); // id -> { status } | { failed }
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -103,6 +446,38 @@ export default function RegistryPage() {
       if (copyTimerRef.current) window.clearTimeout(copyTimerRef.current);
     };
   }, []);
+
+  // One custody request per visible original, at most: the anchor column reuses
+  // these summaries for the life of the page and never refetches on render.
+  useEffect(() => {
+    const pending = assets
+      .map((asset) => asset?.id)
+      .filter((id) => id && !anchorRequestsRef.current.has(id));
+    if (pending.length === 0) return;
+
+    pending.forEach((id) => anchorRequestsRef.current.add(id));
+    const queue = [...pending];
+
+    async function fetchSummary() {
+      while (queue.length > 0) {
+        const id = queue.shift();
+        try {
+          const data = await forensicsAPI.getCustody("asset", id);
+          if (!mountedRef.current) return;
+          const status = newestEntry(data?.entries)?.anchor?.status ?? "not_required";
+          setAnchorSummaries((previous) => ({ ...previous, [id]: { status } }));
+        } catch {
+          if (!mountedRef.current) return;
+          setAnchorSummaries((previous) => ({ ...previous, [id]: { failed: true } }));
+        }
+      }
+    }
+
+    // Four at a time keeps the registry responsive without a request storm.
+    Promise.all(
+      Array.from({ length: Math.min(4, pending.length) }, () => fetchSummary()),
+    );
+  }, [assets]);
 
   async function registerFile(file) {
     if (!file || uploading) return;
@@ -310,6 +685,7 @@ export default function RegistryPage() {
                 <TableHead className="px-4">File</TableHead>
                 <TableHead className="px-4">Perceptual hash</TableHead>
                 <TableHead className="px-4">SHA-256</TableHead>
+                <TableHead className="px-4">Anchor</TableHead>
                 <TableHead className="px-4">Registered</TableHead>
                 <TableHead className="w-12 px-4">
                   <span className="sr-only">Actions</span>
@@ -333,6 +709,9 @@ export default function RegistryPage() {
                       <Skeleton className="h-4 w-28" />
                     </TableCell>
                     <TableCell className="px-4">
+                      <Skeleton className="h-4 w-16" />
+                    </TableCell>
+                    <TableCell className="px-4">
                       <Skeleton className="h-4 w-20" />
                     </TableCell>
                     <TableCell className="px-4">
@@ -343,7 +722,7 @@ export default function RegistryPage() {
 
               {isEmpty && (
                 <TableRow>
-                  <TableCell colSpan={5} className="px-4 py-14">
+                  <TableCell colSpan={6} className="px-4 py-14">
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
                       <span className="grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
                         <ImageIcon className="size-5" aria-hidden="true" />
@@ -372,8 +751,20 @@ export default function RegistryPage() {
                 assets.map((asset) => (
                   <TableRow
                     key={asset.id}
+                    tabIndex={0}
+                    aria-label={`View provenance for ${asset.file_name}`}
+                    onClick={() => setDetailAsset(asset)}
+                    onKeyDown={(event) => {
+                      if (
+                        (event.key === "Enter" || event.key === " ") &&
+                        event.target === event.currentTarget
+                      ) {
+                        event.preventDefault();
+                        setDetailAsset(asset);
+                      }
+                    }}
                     className={cn(
-                      "transition-colors",
+                      "cursor-pointer transition-colors focus-visible:bg-muted/60 focus-visible:outline-none",
                       highlightId === asset.id && "bg-primary/[0.07]",
                     )}
                   >
@@ -404,10 +795,16 @@ export default function RegistryPage() {
                         {asset.sha256 ? `${asset.sha256.slice(0, 24)}…` : "—"}
                       </span>
                     </TableCell>
+                    <TableCell className="px-4">
+                      <AnchorIndicator summary={anchorSummaries[asset.id]} />
+                    </TableCell>
                     <TableCell className="px-4 text-muted-foreground tabular-nums">
                       {formatDate(asset.created_at)}
                     </TableCell>
-                    <TableCell className="px-4 text-right">
+                    <TableCell
+                      className="px-4 text-right"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -428,6 +825,10 @@ export default function RegistryPage() {
                           >
                             <Scale className="size-4" />
                             Check this original
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setDetailAsset(asset)}>
+                            <History className="size-4" />
+                            View provenance
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onSelect={() => copySha256(asset)}>
@@ -460,6 +861,15 @@ export default function RegistryPage() {
           </p>
         )}
       </section>
+
+      <AssetProvenanceDialog
+        key={detailAsset?.id ?? "closed"}
+        asset={detailAsset}
+        open={Boolean(detailAsset)}
+        onOpenChange={(open) => {
+          if (!open) setDetailAsset(null);
+        }}
+      />
     </div>
   );
 }
