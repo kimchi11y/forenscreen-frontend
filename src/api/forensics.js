@@ -62,10 +62,12 @@ export const forensicsAPI = {
    *  and this resolves to `{ similar: true, detail, registered_at }` instead of
    *  throwing, so the caller can ask the user. Call again with
    *  `confirmSimilar: true` to register anyway. */
-  async uploadOriginalAsset(file, { confirmSimilar = false } = {}) {
+  async uploadOriginalAsset(file, { confirmSimilar = false, clientMetadata = null } = {}) {
     const form = new FormData();
     form.append("file", file);
     if (confirmSimilar) form.append("confirm_similar", "true");
+    // { device, location? } - see lib/client-metadata.js
+    if (clientMetadata) form.append("client_metadata", JSON.stringify(clientMetadata));
     const response = await fetch(`${API_BASE_URL}/upload-asset/`, {
       method: "POST",
       headers: await authHeaders(),

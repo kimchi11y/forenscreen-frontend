@@ -20,6 +20,8 @@ import { PageHeader } from "@/components/app-shell";
 import EvidenceFrame from "@/components/evidence-frame";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { forensicsAPI } from "@/api/forensics";
+import { collectDevice, requestLocation } from "@/lib/client-metadata";
 import { useApiImage } from "@/lib/use-api-image";
 import { cn } from "@/lib/utils";
 
@@ -172,6 +175,131 @@ function AnchorIndicator({ summary }) {
   );
 }
 
+const DETAIL_TIME = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+function formatDetailTime(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? DETAIL_TIME.format(date) : null;
+}
+
+/** One labelled value, with where it came from. Hidden when there is no value. */
+function DetailRow({ label, value }) {
+  if (value == null || value === "") return null;
+  return (
+    <div className="flex items-baseline justify-between gap-3 py-1.5 text-[0.8125rem]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-right">{value}</span>
+    </div>
+  );
+}
+
+function DetailGroup({ title, source, children }) {
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <h4 className="text-[0.8125rem] font-semibold">{title}</h4>
+        <span className="text-[0.6875rem] text-muted-foreground">{source}</span>
+      </div>
+      <div className="divide-y divide-border">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * What was recorded alongside the file when it was registered, grouped by
+ * where each value came from. Only the server's clock is beyond the
+ * registering user's control; the rest is context, not proof.
+ */
+function RegistrationDetails({ details }) {
+  if (!details) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        No registration details were recorded for this original.
+      </p>
+    );
+  }
+  const file = details.file ?? {};
+  const device = details.device;
+  const location = details.location;
+  const signals = details.signals ?? [];
+  const camera = [file.camera_make, file.camera_model].filter(Boolean).join(" ");
+
+  return (
+    <section aria-labelledby="registration-details-title" className="space-y-3">
+      <h3 id="registration-details-title" className="text-sm font-semibold">
+        Registration details
+      </h3>
+
+      {signals.length > 0 && (
+        <Alert className="border-caution/45 bg-caution/15">
+          <Info className="size-4" />
+          <AlertTitle>Worth a closer look</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc space-y-1 pl-4">
+              {signals.map((signal) => (
+                <li key={signal.code}>{signal.message}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <DetailGroup title="Received" source="Server clock">
+          <DetailRow label="Received at" value={formatDetailTime(details.server?.received_at)} />
+        </DetailGroup>
+
+        <DetailGroup title="From the file" source="File metadata (editable)">
+          <DetailRow label="Taken" value={formatDetailTime(file.captured_at)} />
+          <DetailRow label="Last modified" value={formatDetailTime(file.modified_at)} />
+          <DetailRow label="Camera" value={camera || null} />
+          <DetailRow label="Software" value={file.software} />
+          <DetailRow label="Comment" value={file.user_comment} />
+          <DetailRow
+            label="GPS in file"
+            value={
+              file.gps
+                ? `${file.gps.lat}, ${file.gps.lon}`
+                : file.gps_present
+                  ? "Yes (not saved: location sharing was off)"
+                  : "None"
+            }
+          />
+          <DetailRow
+            label="Size"
+            value={file.width && file.height ? `${file.width} × ${file.height} ${file.format ?? ""}` : null}
+          />
+        </DetailGroup>
+
+        <DetailGroup title="Your device" source="Reported by your browser">
+          {device ? (
+            <>
+              <DetailRow label="Platform" value={device.platform} />
+              <DetailRow label="Time zone" value={device.timezone} />
+              <DetailRow label="Screen" value={device.screen} />
+              <DetailRow label="Language" value={device.language} />
+              <DetailRow label="Browser" value={device.user_agent} />
+            </>
+          ) : (
+            <DetailRow label="Device" value="Not recorded" />
+          )}
+        </DetailGroup>
+
+        <DetailGroup title="Location" source="Shared by you">
+          <DetailRow
+            label="Location"
+            value={
+              location
+                ? `${location.lat}, ${location.lon}${location.accuracy_m != null ? ` (±${location.accuracy_m} m)` : ""}`
+                : "Not shared"
+            }
+          />
+        </DetailGroup>
+      </div>
+    </section>
+  );
+}
+
 function AssetProvenanceDialog({ asset, open, onOpenChange }) {
   const [custody, setCustody] = useState(null);
   const [verification, setVerification] = useState(null);
@@ -251,6 +379,8 @@ function AssetProvenanceDialog({ asset, open, onOpenChange }) {
             </span>
           </div>
         )}
+
+        {asset && <RegistrationDetails details={asset.registration_metadata} />}
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
@@ -448,6 +578,11 @@ export default function RegistryPage() {
   const [uploadError, setUploadError] = useState("");
   const [notice, setNotice] = useState(null); // { title, text }
   const [pendingSimilar, setPendingSimilar] = useState(null); // { file, detail }
+  // Off by default. Turning it on asks the browser for permission straight away,
+  // so the user sees the prompt as a result of their own choice.
+  const [shareLocation, setShareLocation] = useState(false);
+  const [location, setLocation] = useState(null); // { lat, lon, accuracy_m }
+  const [locationNote, setLocationNote] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState(null); // { text, failed }
   const [detailAsset, setDetailAsset] = useState(null);
@@ -522,7 +657,13 @@ export default function RegistryPage() {
     setPendingSimilar(null);
 
     try {
-      const result = await forensicsAPI.uploadOriginalAsset(file, { confirmSimilar });
+      const result = await forensicsAPI.uploadOriginalAsset(file, {
+        confirmSimilar,
+        clientMetadata: {
+          device: collectDevice(),
+          ...(shareLocation && location ? { location } : {}),
+        },
+      });
 
       if (result?.similar) {
         // Another account registered a similar picture first. Nothing has been
@@ -551,6 +692,7 @@ export default function RegistryPage() {
         sha256: result.sha256,
         created_at: new Date().toISOString(),
         image_url: forensicsAPI.assetImageUrl(result.id),
+        registration_metadata: result.registration_metadata ?? null,
       };
       setAssets((previous) => [asset, ...previous]);
       setHighlightId(asset.id);
@@ -564,6 +706,25 @@ export default function RegistryPage() {
       );
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleShareLocation(checked) {
+    setLocationNote("");
+    if (!checked) {
+      setShareLocation(false);
+      setLocation(null);
+      return;
+    }
+    setShareLocation(true);
+    setLocationNote("Asking your browser for your location…");
+    try {
+      setLocation(await requestLocation());
+      setLocationNote("Your location will be saved with the next registration.");
+    } catch (error) {
+      setShareLocation(false);
+      setLocation(null);
+      setLocationNote(error.message);
     }
   }
 
@@ -674,9 +835,29 @@ export default function RegistryPage() {
           <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
           <span>
             Registering stores a SHA-256 fingerprint and a perceptual hash. The image
-            itself is kept, so a later copy can be compared against it.
+            itself is kept, so a later copy can be compared against it. The time it
+            arrives, what the file says about itself, and your browser and device type
+            are saved with it.
           </span>
         </p>
+
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="share-location"
+              checked={shareLocation}
+              onCheckedChange={(checked) => handleShareLocation(checked === true)}
+              disabled={uploading}
+            />
+            <Label htmlFor="share-location" className="text-sm">
+              Share my location
+            </Label>
+          </div>
+          <p className="pl-6 text-xs text-muted-foreground">
+            {locationNote ||
+              "Off by default. If you turn it on, your current location is saved with the registration. It is only shown to you."}
+          </p>
+        </div>
 
         {uploadError && (
           <p role="alert" className="text-sm text-destructive">

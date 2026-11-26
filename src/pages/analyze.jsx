@@ -241,6 +241,10 @@ export default function AnalyzePage() {
   }
 
   const analysis = result?.forensics?.image_analysis ?? null;
+  // What the submitted file says about itself (objective 4: traces of editing
+  // software, inconsistent timestamps). Hints for the reviewer, not the verdict.
+  const fileMetadata = result?.forensics?.file_metadata ?? null;
+  const metadataSignals = result?.forensics?.metadata_signals ?? [];
 
   const dimensions =
     analysis?.width != null && analysis?.height != null
@@ -537,7 +541,26 @@ export default function AnalyzePage() {
                     <MetaRow label="Dimensions" value={dimensions} />
                     <MetaRow label="Format" value={analysis?.format} />
                     <MetaRow label="Received" value={formatDateTime(result.uploaded_at)} />
+                    <MetaRow label="Software (from file)" value={fileMetadata?.software ?? "—"} />
+                    <MetaRow
+                      label="Taken (from file)"
+                      value={fileMetadata?.captured_at ? formatDateTime(fileMetadata.captured_at) : "—"}
+                    />
                   </div>
+
+                  {metadataSignals.length > 0 && (
+                    <div className="rounded-lg border border-caution/45 bg-caution/15 p-3 text-xs">
+                      <p className="font-medium">The file&rsquo;s own metadata is worth a closer look</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                        {metadataSignals.map((signal) => (
+                          <li key={signal.code}>{signal.message}</li>
+                        ))}
+                      </ul>
+                      <p className="mt-1.5 text-muted-foreground">
+                        Metadata can be edited by anyone, so this is a hint, not part of the verdict.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
