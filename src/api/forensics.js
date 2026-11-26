@@ -177,6 +177,33 @@ export const forensicsAPI = {
     return get(`/verify-anchor/${sha256}`);
   },
 
+  /** Create a share link for one of your checks. `token` is returned once only. */
+  createShareLink(checkId, days = 30) {
+    return sendJson("POST", `/checks/${checkId}/share`, { days });
+  },
+
+  listShareLinks(checkId) {
+    return get(`/checks/${checkId}/shares`);
+  },
+
+  revokeShareLink(shareId) {
+    return sendJson("DELETE", `/shares/${shareId}`);
+  },
+
+  /** What a share link shows. Public: the token is the permission. */
+  getShared(token) {
+    return get(`/shared/${encodeURIComponent(token)}`);
+  },
+
+  /** `kind` is "evidence", "original" or "difference-overlay". */
+  sharedImageUrl(token, kind) {
+    return `${API_BASE_URL}/shared/${encodeURIComponent(token)}/${kind}`;
+  },
+
+  getSharedRegions(token) {
+    return get(`/shared/${encodeURIComponent(token)}/altered-regions`);
+  },
+
   /** The signed-in user's cases, newest first, with item counts. */
   listCases() {
     return get("/cases");

@@ -8,6 +8,7 @@ import LoginPage from "@/pages/auth/login";
 import SignupPage from "@/pages/auth/signup";
 import PublicCheckPage from "@/pages/check";
 import VerifyPage from "@/pages/verify";
+import SharedPage from "@/pages/shared";
 
 import DashboardPage from "@/pages/dashboard";
 import RegistryPage from "@/pages/assets";
@@ -28,6 +29,7 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/check" element={<PublicCheckPage />} />
         <Route path="/verify" element={<VerifyPage />} />
+        <Route path="/shared/:token" element={<SharedPage />} />
       </Route>
 
       <Route path="/login" element={<LoginPage />} />

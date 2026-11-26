@@ -9,6 +9,7 @@ import {
   Loader2,
   MinusCircle,
   ScanSearch,
+  Share2,
   ShieldAlert,
   ShieldCheck,
   TriangleAlert,
@@ -19,6 +20,7 @@ import { PageHeader } from "@/components/app-shell";
 import VerdictBanner from "@/components/verdict-banner";
 import EvidenceFrame from "@/components/evidence-frame";
 import PrivateOriginal from "@/components/private-original";
+import ShareDialog from "@/components/share-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { forensicsAPI } from "@/api/forensics";
@@ -242,6 +244,7 @@ export default function ComparePage() {
   const [regionsError, setRegionsError] = useState(null);
 
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [exportNotice, setExportNotice] = useState(null);
   const [exportError, setExportError] = useState(null);
 
@@ -426,6 +429,10 @@ export default function ComparePage() {
         title="Comparison"
         description={file.file_name ?? file.saved_filename ?? "—"}
       >
+        <Button variant="outline" onClick={() => setSharing(true)}>
+          <Share2 />
+          Share
+        </Button>
         <Button onClick={handleExport} disabled={exporting}>
           {exporting ? (
             <Loader2 className="animate-spin" />
@@ -745,6 +752,8 @@ export default function ComparePage() {
           </CardContent>
         </Card>
       )}
+
+      <ShareDialog checkId={evidenceId} open={sharing} onOpenChange={setSharing} />
     </div>
   );
 }
