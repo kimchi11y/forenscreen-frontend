@@ -309,7 +309,7 @@ export default function PublicCheckPage() {
                     <figcaption className="text-xs text-muted-foreground">
                       The registered original
                     </figcaption>
-                    {matchedOriginal.is_owner ? (
+                    {matchedOriginal.is_owner || matchedOriginal.original_public ? (
                       <EvidenceFrame
                         src={forensicsAPI.assetImageUrl(matchedOriginal.original_asset_id)}
                         alt={`The registered original: ${matchedOriginal.original_filename}`}

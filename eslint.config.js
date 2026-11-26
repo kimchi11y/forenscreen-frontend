@@ -18,4 +18,12 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // The browser extension is plain JavaScript run by Chrome, not part of the
+    // React app: it has the `chrome` extension API and no React rules apply.
+    files: ['extension/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.webextensions },
+    },
+  },
 ])

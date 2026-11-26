@@ -300,7 +300,51 @@ function RegistrationDetails({ details }) {
   );
 }
 
-function AssetProvenanceDialog({ asset, open, onOpenChange }) {
+/**
+ * The owner's choice to show this original to anyone whose check matches it.
+ * Off by default. Useful when a fake of your screenshot is spreading: people
+ * checking the fake then see your real one beside it.
+ */
+function PublicOriginalToggle({ asset, onChange }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function toggle(checked) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await forensicsAPI.updateAsset(asset.id, { public_original: checked });
+      onChange({ ...asset, public_original: updated.public_original });
+    } catch (err) {
+      setError(err?.message || "The setting could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1 rounded-lg border border-border p-3">
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="public-original"
+          checked={Boolean(asset.public_original)}
+          onCheckedChange={(checked) => toggle(checked === true)}
+          disabled={saving}
+        />
+        <Label htmlFor="public-original" className="text-sm">
+          Show this original in public checks
+        </Label>
+      </div>
+      <p className="pl-6 text-xs text-muted-foreground">
+        Off by default. When on, anyone whose check matches this original sees it side by side
+        with their copy. Its file name stays private. Changing this is recorded below.
+      </p>
+      {error && <p role="alert" className="pl-6 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+function AssetProvenanceDialog({ asset, open, onOpenChange, onAssetChange }) {
   const [custody, setCustody] = useState(null);
   const [verification, setVerification] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -379,6 +423,8 @@ function AssetProvenanceDialog({ asset, open, onOpenChange }) {
             </span>
           </div>
         )}
+
+        {asset && <PublicOriginalToggle asset={asset} onChange={onAssetChange} />}
 
         {asset && <RegistrationDetails details={asset.registration_metadata} />}
 
@@ -1132,6 +1178,10 @@ export default function RegistryPage() {
         open={Boolean(detailAsset)}
         onOpenChange={(open) => {
           if (!open) setDetailAsset(null);
+        }}
+        onAssetChange={(updated) => {
+          setDetailAsset(updated);
+          setAssets((previous) => previous.map((a) => (a.id === updated.id ? updated : a)));
         }}
       />
     </div>

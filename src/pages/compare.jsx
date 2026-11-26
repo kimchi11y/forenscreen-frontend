@@ -9,6 +9,7 @@ import {
   Loader2,
   MinusCircle,
   ScanSearch,
+  Share2,
   ShieldAlert,
   ShieldCheck,
   TriangleAlert,
@@ -19,6 +20,7 @@ import { PageHeader } from "@/components/app-shell";
 import VerdictBanner from "@/components/verdict-banner";
 import EvidenceFrame from "@/components/evidence-frame";
 import PrivateOriginal from "@/components/private-original";
+import ShareDialog from "@/components/share-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { forensicsAPI } from "@/api/forensics";
@@ -100,6 +102,7 @@ function fromStoredCheck(check) {
   if (check.asset_id != null) {
     matched.original_asset_id = check.asset_id;
     matched.is_owner = Boolean(check.asset_is_owner);
+    matched.original_public = Boolean(check.asset_public);
     matched.registered_at = check.asset_registered_at ?? null;
   }
   if (check.match_method != null) matched.match_method = check.match_method;
@@ -242,6 +245,7 @@ export default function ComparePage() {
   const [regionsError, setRegionsError] = useState(null);
 
   const [exporting, setExporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [exportNotice, setExportNotice] = useState(null);
   const [exportError, setExportError] = useState(null);
 
@@ -426,6 +430,10 @@ export default function ComparePage() {
         title="Comparison"
         description={file.file_name ?? file.saved_filename ?? "—"}
       >
+        <Button variant="outline" onClick={() => setSharing(true)}>
+          <Share2 />
+          Share
+        </Button>
         <Button onClick={handleExport} disabled={exporting}>
           {exporting ? (
             <Loader2 className="animate-spin" />
@@ -510,7 +518,7 @@ export default function ComparePage() {
             <CardTitle>Registered original</CardTitle>
           </CardHeader>
           <CardContent>
-            {originalId && !matched?.is_owner ? (
+            {originalId && !(matched?.is_owner || matched?.original_public) ? (
               <PrivateOriginal
                 registeredAt={matched?.registered_at}
                 sha256={matched?.original_sha256}
@@ -745,6 +753,8 @@ export default function ComparePage() {
           </CardContent>
         </Card>
       )}
+
+      <ShareDialog checkId={evidenceId} open={sharing} onOpenChange={setSharing} />
     </div>
   );
 }

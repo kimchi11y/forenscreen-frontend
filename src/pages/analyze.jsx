@@ -262,6 +262,8 @@ export default function AnalyzePage() {
   // Checks match against every account's originals, but only the owner may
   // see an original's image and filename.
   const ownsOriginal = Boolean(matchedAsset?.is_owner);
+  // The owner may have chosen to show the original to everyone.
+  const canSeeOriginal = ownsOriginal || Boolean(matchedAsset?.original_public);
   const originalAsset = useMemo(
     () => assets.find((asset) => String(asset.id) === String(originalAssetId)) ?? null,
     [assets, originalAssetId],
@@ -574,7 +576,7 @@ export default function AnalyzePage() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {originalAssetId && !ownsOriginal ? (
+                  {originalAssetId && !canSeeOriginal ? (
                     <PrivateOriginal
                       registeredAt={originalRegisteredAt}
                       sha256={matchedAsset?.original_sha256}
