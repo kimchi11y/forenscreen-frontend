@@ -48,6 +48,18 @@ async function parse(response) {
   throw new Error(detail);
 }
 
+async function sendJson(method, path, body) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: {
+      ...(await authHeaders()),
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return parse(response);
+}
+
 async function get(path) {
   return parse(await fetch(`${API_BASE_URL}${path}`, { headers: await authHeaders() }));
 }
@@ -153,6 +165,37 @@ export const forensicsAPI = {
   /** Compare a digest against both the registry and the chain. */
   verifyAnchor(sha256) {
     return get(`/verify-anchor/${sha256}`);
+  },
+
+  /** The signed-in user's cases, newest first, with item counts. */
+  listCases() {
+    return get("/cases");
+  },
+
+  /** One case with its originals and checks. */
+  getCase(caseId) {
+    return get(`/cases/${caseId}`);
+  },
+
+  createCase({ title, summary }) {
+    return sendJson("POST", "/cases", { title, summary });
+  },
+
+  /** Change any of `title`, `summary` or `status` ("open" | "closed"). */
+  updateCase(caseId, fields) {
+    return sendJson("PATCH", `/cases/${caseId}`, fields);
+  },
+
+  /** `subjectType` is "asset" (an original) or "evidence" (a check). */
+  addCaseItem(caseId, subjectType, subjectId) {
+    return sendJson("POST", `/cases/${caseId}/items`, {
+      subject_type: subjectType,
+      subject_id: subjectId,
+    });
+  },
+
+  removeCaseItem(caseId, subjectType, subjectId) {
+    return sendJson("DELETE", `/cases/${caseId}/items/${subjectType}/${subjectId}`);
   },
 
   /** Who the API believes we are. */
