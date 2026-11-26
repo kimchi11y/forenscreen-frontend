@@ -177,6 +177,19 @@ export const forensicsAPI = {
     return get(`/verify-anchor/${sha256}`);
   },
 
+  /** A token for the browser extension. `token` is returned once only. */
+  createExtensionToken(label) {
+    return sendJson("POST", "/extension-tokens", { label });
+  },
+
+  listExtensionTokens() {
+    return get("/extension-tokens");
+  },
+
+  revokeExtensionToken(tokenId) {
+    return sendJson("DELETE", `/extension-tokens/${tokenId}`);
+  },
+
   /** Create a share link for one of your checks. `token` is returned once only. */
   createShareLink(checkId, days = 30) {
     return sendJson("POST", `/checks/${checkId}/share`, { days });

@@ -3,6 +3,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react
 import {
   Bell,
   Folder,
+  Puzzle,
   Image as ImageIcon,
   LayoutDashboard,
   LogOut,
@@ -25,6 +26,7 @@ const WORKSPACE_NAV = [
 
 const ACCOUNT_NAV = [
   { to: "/check", label: "Public check", Icon: Search, isPublic: true },
+  { to: "/extension", label: "Browser extension", Icon: Puzzle },
   { to: "/settings", label: "Settings", Icon: Settings },
 ];
 

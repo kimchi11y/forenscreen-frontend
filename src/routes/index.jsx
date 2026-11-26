@@ -16,6 +16,7 @@ import CasesPage from "@/pages/cases";
 import AnalyzePage from "@/pages/analyze";
 import ComparePage from "@/pages/compare";
 import SettingsPage from "@/pages/settings";
+import ExtensionPage from "@/pages/extension";
 
 /**
  * Public pages get the slim header/footer; the signed-in pages get the sidebar
@@ -42,6 +43,7 @@ function AppRoutes() {
         <Route path="/analyze" element={<AnalyzePage />} />
         <Route path="/compare/:evidenceId" element={<ComparePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/extension" element={<ExtensionPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
