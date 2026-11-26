@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Register with ForenScreen</title>
+  <link rel="stylesheet" href="ui.css">
+  <style>body { width: auto; max-width: 440px; }</style>
+</head>
+<body>
+  <h1>Register this image?</h1>
+  <p class="muted" id="source"></p>
+  <img id="preview" class="preview" alt="The image you right-clicked">
+  <div class="pair" id="compare" hidden>
+    <figure><img id="own" alt="This image"><figcaption>This image</figcaption></figure>
+    <figure><img id="earlier" alt="Registered earlier by another account"><figcaption>Already registered (earlier)</figcaption></figure>
+  </div>
+  <p class="muted">Only register images that are yours. Its fingerprint will be saved to your
+    ForenScreen account and anchored on the blockchain.</p>
+  <div id="result" class="status" hidden></div>
+  <div class="actions">
+    <button id="cancel" type="button">Cancel</button>
+    <button id="anyway" type="button" hidden>Register anyway</button>
+    <button id="register" class="primary" type="button">Register</button>
+  </div>
+  <script type="module" src="confirm.js"></script>
+</body>
+</html>
