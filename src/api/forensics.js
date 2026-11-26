@@ -140,6 +140,16 @@ export const forensicsAPI = {
     return parse(response);
   },
 
+  /** Record that a report was exported, and return it as a PDF Blob. */
+  async exportReportPdf(checkId) {
+    const response = await fetch(`${API_BASE_URL}/checks/${checkId}/report.pdf`, {
+      method: "POST",
+      headers: await authHeaders(),
+    });
+    if (!response.ok) return parse(response); // throws with the server's message
+    return response.blob();
+  },
+
   /** Rectangles where the evidence differs from the original it matched. */
   getAlteredRegions(fileId, originalAssetId) {
     return get(

@@ -367,15 +367,11 @@ export default function ComparePage() {
     setExportError(null);
 
     try {
-      const data = await forensicsAPI.exportReport(evidenceId);
-      const report = data?.report ?? data;
-      const blob = new Blob([JSON.stringify(report, null, 2)], {
-        type: "application/json",
-      });
+      const blob = await forensicsAPI.exportReportPdf(evidenceId);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `forenscreen-report-${shortId}.json`;
+      link.download = `forenscreen-report-${shortId}.pdf`;
       document.body.append(link);
       link.click();
       link.remove();
