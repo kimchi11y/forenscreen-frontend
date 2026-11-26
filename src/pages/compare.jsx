@@ -102,6 +102,7 @@ function fromStoredCheck(check) {
   if (check.asset_id != null) {
     matched.original_asset_id = check.asset_id;
     matched.is_owner = Boolean(check.asset_is_owner);
+    matched.original_public = Boolean(check.asset_public);
     matched.registered_at = check.asset_registered_at ?? null;
   }
   if (check.match_method != null) matched.match_method = check.match_method;
@@ -517,7 +518,7 @@ export default function ComparePage() {
             <CardTitle>Registered original</CardTitle>
           </CardHeader>
           <CardContent>
-            {originalId && !matched?.is_owner ? (
+            {originalId && !(matched?.is_owner || matched?.original_public) ? (
               <PrivateOriginal
                 registeredAt={matched?.registered_at}
                 sha256={matched?.original_sha256}

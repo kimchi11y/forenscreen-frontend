@@ -11,6 +11,7 @@ import {
 import { forensicsAPI } from "@/api/forensics";
 import { useApiImage } from "@/lib/use-api-image";
 import { PageHeader } from "@/components/app-shell";
+import { VerdictPill } from "@/components/verdict-banner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -128,6 +129,46 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Counts for the stat cards, and what other people did with your originals.
+  const [summary, setSummary] = useState(null); // { checks, modified, sampled, openCases }
+  const [activity, setActivity] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSummary() {
+      const [checks, cases, recent] = await Promise.allSettled([
+        forensicsAPI.listChecks({ limit: 100 }),
+        forensicsAPI.listCases(),
+        forensicsAPI.getActivity(),
+      ]);
+      if (cancelled) return;
+      const list = checks.status === "fulfilled" ? checks.value.checks ?? [] : null;
+      setSummary({
+        checks: checks.status === "fulfilled" ? checks.value.total : null,
+        modified: list
+          ? list.filter((c) =>
+              ["TAMPERED_MANIPULATED", "EARLIER_ORIGINAL_EXISTS"].includes(c.verification_status),
+            ).length
+          : null,
+        sampled: list ? checks.value.total > list.length : false,
+        openCases:
+          cases.status === "fulfilled"
+            ? (cases.value.cases ?? []).filter((c) => c.status === "open").length
+            : null,
+      });
+      setActivity(recent.status === "fulfilled" ? recent.value.activity ?? [] : []);
+    }
+
+    loadSummary();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const statValue = (value) =>
+    summary === null ? <Skeleton className="h-7 w-14" /> : value ?? "—";
+
   const isEmpty = !loading && !error && total === 0;
 
   return (
@@ -160,9 +201,13 @@ export default function DashboardPage() {
             }
             foot={error ? "Could not load" : "In your registry"}
           />
-          <StatCard label="Checks run" value="—" foot="Coming soon" />
-          <StatCard label="Modified detected" value="—" foot="Coming soon" />
-          <StatCard label="Open cases" value="—" foot="Coming soon" />
+          <StatCard label="Checks run" value={statValue(summary?.checks)} foot="By you" />
+          <StatCard
+            label="Modified detected"
+            value={statValue(summary?.modified)}
+            foot={summary?.sampled ? "In your last 100 checks" : "In your checks"}
+          />
+          <StatCard label="Open cases" value={statValue(summary?.openCases)} foot="Grouping evidence" />
         </section>
 
         {error && (
@@ -269,6 +314,37 @@ export default function DashboardPage() {
               </TableBody>
             </Table>
           )}
+        </Card>
+
+        {/* ----------------------------- activity ----------------------------- */}
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>Activity on your originals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activity === null ? (
+              <Skeleton className="h-10 w-full" />
+            ) : activity.length === 0 ? (
+              <p className="py-4 text-sm text-muted-foreground">
+                Nothing yet. When someone checks a copy of one of your originals, or registers a
+                similar image, it shows up here. You won&rsquo;t see who; they don&rsquo;t see you
+                either.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {activity.map((item, index) => (
+                  <li key={index} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-[0.8125rem]">
+                    <span className="min-w-0 flex-1">
+                      {item.message}
+                      <span className="text-muted-foreground"> · {item.original_name}</span>
+                    </span>
+                    {item.verdict && <VerdictPill status={item.verdict} />}
+                    <span className="text-xs text-muted-foreground tabular-nums">{formatDate(item.at)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
         </Card>
 
         {/* --------------------------- quick actions --------------------------- */}
