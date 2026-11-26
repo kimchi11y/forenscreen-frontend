@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertCircle,
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
+import EvidenceFrame from "@/components/evidence-frame";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { forensicsAPI } from "@/api/forensics";
+import { useApiImage } from "@/lib/use-api-image";
 import { cn } from "@/lib/utils";
 
 function formatDate(value) {
@@ -378,9 +380,12 @@ function AssetProvenanceDialog({ asset, open, onOpenChange }) {
 
 /** 32px thumbnail, falling back to a soft tile when the image won't load. */
 function AssetThumb({ assetId }) {
+  const { src, failed: loadFailed } = useApiImage(
+    assetId ? forensicsAPI.assetImageUrl(assetId) : null,
+  );
   const [failed, setFailed] = useState(false);
 
-  if (failed || !assetId) {
+  if (failed || loadFailed || !src) {
     return (
       <div
         aria-hidden="true"
@@ -391,12 +396,39 @@ function AssetThumb({ assetId }) {
 
   return (
     <img
-      src={forensicsAPI.assetImageUrl(assetId)}
+      src={src}
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}
       className="size-8 shrink-0 rounded-lg border border-border object-cover"
     />
+  );
+}
+
+/**
+ * The user's image beside a preview of the earlier, similar original, so they
+ * can judge for themselves whether it really is the same picture before
+ * registering anyway. The preview is a downscaled copy, and the backend records
+ * every time one is shown.
+ */
+function SimilarComparison({ file, earlierPreview }) {
+  const ownSrc = useMemo(() => URL.createObjectURL(file), [file]);
+  useEffect(() => () => URL.revokeObjectURL(ownSrc), [ownSrc]);
+
+  return (
+    <div className="grid max-w-[520px] grid-cols-2 gap-3">
+      <figure className="flex flex-col gap-1.5">
+        <figcaption className="text-xs font-medium">Your image</figcaption>
+        <EvidenceFrame src={ownSrc} alt={`Your image: ${file.name}`} />
+      </figure>
+      <figure className="flex flex-col gap-1.5">
+        <figcaption className="text-xs font-medium">Already registered (earlier)</figcaption>
+        <EvidenceFrame
+          src={earlierPreview}
+          alt="The similar image registered earlier by another account"
+        />
+      </figure>
+    </div>
   );
 }
 
@@ -415,6 +447,7 @@ export default function RegistryPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [notice, setNotice] = useState(null); // { title, text }
+  const [pendingSimilar, setPendingSimilar] = useState(null); // { file, detail }
   const [highlightId, setHighlightId] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState(null); // { text, failed }
   const [detailAsset, setDetailAsset] = useState(null);
@@ -479,16 +512,28 @@ export default function RegistryPage() {
     );
   }, [assets]);
 
-  async function registerFile(file) {
+  async function registerFile(file, { confirmSimilar = false } = {}) {
     if (!file || uploading) return;
 
     setUploading(true);
     setUploadError("");
     setNotice(null);
     setHighlightId(null);
+    setPendingSimilar(null);
 
     try {
-      const result = await forensicsAPI.uploadOriginalAsset(file);
+      const result = await forensicsAPI.uploadOriginalAsset(file, { confirmSimilar });
+
+      if (result?.similar) {
+        // Another account registered a similar picture first. Nothing has been
+        // saved; ask before registering anyway.
+        setPendingSimilar({
+          file,
+          detail: result.detail,
+          earlierPreview: result.earlier_preview ?? null,
+        });
+        return;
+      }
 
       if (result?.duplicate) {
         setNotice({
@@ -637,6 +682,44 @@ export default function RegistryPage() {
           <p role="alert" className="text-sm text-destructive">
             {uploadError}
           </p>
+        )}
+
+        {pendingSimilar && (
+          <Alert role="alertdialog" className="border-caution/45 bg-caution/15">
+            <Info className="size-4" />
+            <AlertTitle>A similar image is already registered</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{pendingSimilar.detail}</p>
+              {pendingSimilar.earlierPreview && (
+                <SimilarComparison
+                  file={pendingSimilar.file}
+                  earlierPreview={pendingSimilar.earlierPreview}
+                />
+              )}
+              <p className="text-xs">
+                If you go ahead, both registrations are kept and linked, and the other
+                account&rsquo;s owner is told a similar image was registered. Checks of
+                your copy will show that an earlier similar original exists.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => registerFile(pendingSimilar.file, { confirmSimilar: true })}
+                >
+                  Register anyway
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={uploading}
+                  onClick={() => setPendingSimilar(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {notice && (

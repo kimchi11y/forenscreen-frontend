@@ -81,6 +81,22 @@ export const VERDICTS = {
     explanation:
       "This looks like your registered image, but the file itself has been changed.",
   },
+  EARLIER_ORIGINAL_EXISTS: {
+    label: "Earlier similar original found",
+    headline: "An earlier original exists",
+    tone: "caution",
+    Icon: AlertTriangle,
+    explanation:
+      "This exact image is registered, but a similar image was registered earlier by another account. The marked areas are where the two differ.",
+  },
+  RESAVED_COPY: {
+    label: "Re-saved copy, no edits found",
+    headline: "Same picture, re-saved",
+    tone: "info",
+    Icon: CheckCircle2,
+    explanation:
+      "This is the same picture as the registered original. The file was re-saved or resized, which social media platforms do to every upload, but no changes were found in the picture itself.",
+  },
   UNREGISTERED_ASSET: {
     label: "No match found",
     headline: "No match found",
@@ -128,7 +144,19 @@ export function tone(toneName) {
 
 /** True for the verdicts that need the user to do something. */
 export function needsAttention(status) {
-  return status === "TAMPERED_MANIPULATED" || status === "AMBIGUOUS_MATCH";
+  return (
+    status === "TAMPERED_MANIPULATED" ||
+    status === "AMBIGUOUS_MATCH" ||
+    status === "EARLIER_ORIGINAL_EXISTS"
+  );
+}
+
+/**
+ * Verdicts that compare the evidence with a different original, so a
+ * difference map ("where does it differ?") is worth drawing.
+ */
+export function showsDifferences(status) {
+  return status === "TAMPERED_MANIPULATED" || status === "EARLIER_ORIGINAL_EXISTS";
 }
 
 /**
@@ -144,6 +172,8 @@ export function matchMethod(matched) {
       return "Visual match with located differences";
     case "phash_fallback":
       return "Visual match (low-detail image)";
+    case "registered_after_similar":
+      return "Exact match to a registration made after an earlier similar original";
     default:
       return null;
   }

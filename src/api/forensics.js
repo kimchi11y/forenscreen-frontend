@@ -25,9 +25,11 @@ async function authHeaders() {
   try {
     const token = await authTokenProvider();
     return token ? { Authorization: `Bearer ${token}` } : {};
-  } catch {
+  } catch (error) {
     // A failure to mint a token must not break endpoints that also work
-    // anonymously; the request proceeds unattributed.
+    // anonymously; the request proceeds unattributed. It is logged, though:
+    // staying silent here once hid that no request was ever signed in.
+    console.warn("ForenScreen: could not get a sign-in token; request sent anonymously.", error);
     return {};
   }
 }
@@ -54,15 +56,25 @@ export const forensicsAPI = {
   baseUrl: API_BASE_URL,
 
   /** Register an original. Idempotent: re-registering identical bytes returns
-   *  the existing record with `duplicate: true` rather than erroring. */
-  async uploadOriginalAsset(file) {
+   *  the existing record with `duplicate: true` rather than erroring.
+   *
+   *  If another account already registered a similar picture, nothing is saved
+   *  and this resolves to `{ similar: true, detail, registered_at }` instead of
+   *  throwing, so the caller can ask the user. Call again with
+   *  `confirmSimilar: true` to register anyway. */
+  async uploadOriginalAsset(file, { confirmSimilar = false } = {}) {
     const form = new FormData();
     form.append("file", file);
+    if (confirmSimilar) form.append("confirm_similar", "true");
     const response = await fetch(`${API_BASE_URL}/upload-asset/`, {
       method: "POST",
       headers: await authHeaders(),
       body: form,
     });
+    if (response.status === 409) {
+      const body = await response.clone().json().catch(() => null);
+      if (body?.similar) return body;
+    }
     return parse(response);
   },
 
@@ -146,6 +158,17 @@ export const forensicsAPI = {
     return get("/me");
   },
 
+  /**
+   * Fetch a protected image with the sign-in token and return it as a Blob.
+   * Needed because an <img src> request cannot carry an Authorization header,
+   * and the API only serves an image to whoever may see it.
+   */
+  async fetchImage(url) {
+    const response = await fetch(url, { headers: await authHeaders() });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return response.blob();
+  },
+
   /** URL of the evidence image with the differing pixels tinted. */
   differenceOverlayUrl(fileId, originalAssetId) {
     const query = new URLSearchParams({ original_asset_id: originalAssetId });
@@ -157,9 +180,12 @@ export const forensicsAPI = {
     return `${API_BASE_URL}/view-asset/${assetId}`;
   },
 
-  /** Absolute URL for the evidence copy saved during a check. */
-  evidenceImageUrl(savedFilename) {
-    return `${API_BASE_URL}/uploads/${savedFilename}`;
+  /**
+   * Absolute URL for the evidence copy saved during a check. The server checks
+   * the file against its recorded SHA-256 before serving it.
+   */
+  evidenceImageUrl(fileId) {
+    return `${API_BASE_URL}/evidence/${fileId}/image`;
   },
 };
 

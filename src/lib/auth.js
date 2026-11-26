@@ -72,12 +72,31 @@ function expiresAt(jwt) {
   }
 }
 
+/** A JWT has three dot-separated parts; Better Auth's opaque session token does not. */
+function isJwt(value) {
+  return typeof value === "string" && value.split(".").length === 3;
+}
+
 export async function fetchToken() {
   const nowSeconds = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedExpiry > nowSeconds + 30) return cachedToken;
 
-  const data = await call((client) => client.token());
-  const token = data?.token ?? null;
+  // Neon Auth puts the JWT on the session itself (from the `set-auth-jwt`
+  // response header) - the same source its own getJWTToken() reads. Prefer it:
+  // the separate /token call is a cross-site request that needs the session
+  // cookie, which the browser does not always send.
+  let token = null;
+  try {
+    const session = await fetchSession();
+    if (isJwt(session?.session?.token)) token = session.session.token;
+  } catch {
+    // fall through to /token
+  }
+  if (!token) {
+    const data = await call((client) => client.token());
+    token = data?.token ?? null;
+  }
+
   cachedToken = token;
   cachedExpiry = token ? expiresAt(token) : 0;
   return token;

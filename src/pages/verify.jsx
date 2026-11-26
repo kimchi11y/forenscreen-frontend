@@ -187,7 +187,13 @@ function ResultCard({ result, digest, copied, onCopy, onReset }) {
           <BreakdownItem
             Icon={Database}
             label="Registry"
-            value={registered ? database.file_name || "—" : "Not registered"}
+            value={
+              registered
+                ? database.is_owner
+                  ? database.file_name || "—"
+                  : "Registered (owner kept private)"
+                : "Not registered"
+            }
             detail={registeredDetail}
           />
 
