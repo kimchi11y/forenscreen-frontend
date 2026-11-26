@@ -48,6 +48,18 @@ async function parse(response) {
   throw new Error(detail);
 }
 
+async function sendJson(method, path, body) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: {
+      ...(await authHeaders()),
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return parse(response);
+}
+
 async function get(path) {
   return parse(await fetch(`${API_BASE_URL}${path}`, { headers: await authHeaders() }));
 }
@@ -128,6 +140,16 @@ export const forensicsAPI = {
     return parse(response);
   },
 
+  /** Record that a report was exported, and return it as a PDF Blob. */
+  async exportReportPdf(checkId) {
+    const response = await fetch(`${API_BASE_URL}/checks/${checkId}/report.pdf`, {
+      method: "POST",
+      headers: await authHeaders(),
+    });
+    if (!response.ok) return parse(response); // throws with the server's message
+    return response.blob();
+  },
+
   /** Rectangles where the evidence differs from the original it matched. */
   getAlteredRegions(fileId, originalAssetId) {
     return get(
@@ -153,6 +175,87 @@ export const forensicsAPI = {
   /** Compare a digest against both the registry and the chain. */
   verifyAnchor(sha256) {
     return get(`/verify-anchor/${sha256}`);
+  },
+
+  /** Owner settings for one original: `{ public_original: boolean }`. */
+  updateAsset(assetId, settings) {
+    return sendJson("PATCH", `/assets/${assetId}`, settings);
+  },
+
+  /** What other people did with your originals, newest first. */
+  getActivity() {
+    return get("/activity");
+  },
+
+  /** A token for the browser extension. `token` is returned once only. */
+  createExtensionToken(label) {
+    return sendJson("POST", "/extension-tokens", { label });
+  },
+
+  listExtensionTokens() {
+    return get("/extension-tokens");
+  },
+
+  revokeExtensionToken(tokenId) {
+    return sendJson("DELETE", `/extension-tokens/${tokenId}`);
+  },
+
+  /** Create a share link for one of your checks. `token` is returned once only. */
+  createShareLink(checkId, days = 30) {
+    return sendJson("POST", `/checks/${checkId}/share`, { days });
+  },
+
+  listShareLinks(checkId) {
+    return get(`/checks/${checkId}/shares`);
+  },
+
+  revokeShareLink(shareId) {
+    return sendJson("DELETE", `/shares/${shareId}`);
+  },
+
+  /** What a share link shows. Public: the token is the permission. */
+  getShared(token) {
+    return get(`/shared/${encodeURIComponent(token)}`);
+  },
+
+  /** `kind` is "evidence", "original" or "difference-overlay". */
+  sharedImageUrl(token, kind) {
+    return `${API_BASE_URL}/shared/${encodeURIComponent(token)}/${kind}`;
+  },
+
+  getSharedRegions(token) {
+    return get(`/shared/${encodeURIComponent(token)}/altered-regions`);
+  },
+
+  /** The signed-in user's cases, newest first, with item counts. */
+  listCases() {
+    return get("/cases");
+  },
+
+  /** One case with its originals and checks. */
+  getCase(caseId) {
+    return get(`/cases/${caseId}`);
+  },
+
+  createCase({ title, summary }) {
+    return sendJson("POST", "/cases", { title, summary });
+  },
+
+  /** Change any of `title`, `summary` or `status` ("open" | "closed"). */
+  updateCase(caseId, fields) {
+    return sendJson("PATCH", `/cases/${caseId}`, fields);
+  },
+
+  /** `subjectType` is "asset" (an original) or "evidence" (a check). */
+  addCaseItem(caseId, subjectType, subjectId) {
+    return sendJson("POST", `/cases/${caseId}/items`, {
+      subject_type: subjectType,
+      subject_id: subjectId,
+    });
+  },
+
+  removeCaseItem(caseId, subjectType, subjectId) {
+    return sendJson("DELETE", `/cases/${caseId}/items/${subjectType}/${subjectId}`);
   },
 
   /** Who the API believes we are. */
