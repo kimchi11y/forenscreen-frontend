@@ -177,6 +177,16 @@ export const forensicsAPI = {
     return get(`/verify-anchor/${sha256}`);
   },
 
+  /** Owner settings for one original: `{ public_original: boolean }`. */
+  updateAsset(assetId, settings) {
+    return sendJson("PATCH", `/assets/${assetId}`, settings);
+  },
+
+  /** What other people did with your originals, newest first. */
+  getActivity() {
+    return get("/activity");
+  },
+
   /** A token for the browser extension. `token` is returned once only. */
   createExtensionToken(label) {
     return sendJson("POST", "/extension-tokens", { label });
