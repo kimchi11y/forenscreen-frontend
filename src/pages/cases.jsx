@@ -18,8 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { tone, verdict } from "@/lib/verdict";
-import { cn } from "@/lib/utils";
+import { VerdictPill } from "@/components/verdict-banner";
 
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
@@ -30,21 +29,6 @@ function formatDate(value) {
 
 function countLabel(n, one, many) {
   return `${n} ${n === 1 ? one : many}`;
-}
-
-function VerdictPill({ status }) {
-  const v = verdict(status);
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.6875rem] font-medium",
-        tone(v.tone).pill,
-      )}
-    >
-      <v.Icon className="size-3" aria-hidden="true" />
-      {v.label}
-    </span>
-  );
 }
 
 /** Create a case. Calls `onCreated` with the new case. */
