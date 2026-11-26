@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { forensicsAPI } from "@/api/forensics";
+import { useApiImage } from "@/lib/use-api-image";
 import { PageHeader } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,9 +62,12 @@ function formatDate(value) {
 
 /** 32px thumbnail, falling back to a gradient tile when the image won't load. */
 function AssetThumb({ assetId }) {
+  const { src, failed: loadFailed } = useApiImage(
+    assetId ? forensicsAPI.assetImageUrl(assetId) : null,
+  );
   const [failed, setFailed] = useState(false);
 
-  if (failed) {
+  if (failed || loadFailed || !src) {
     return (
       <div
         aria-hidden="true"
@@ -74,7 +78,7 @@ function AssetThumb({ assetId }) {
 
   return (
     <img
-      src={forensicsAPI.assetImageUrl(assetId)}
+      src={src}
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}

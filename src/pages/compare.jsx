@@ -18,11 +18,11 @@ import {
 import { PageHeader } from "@/components/app-shell";
 import VerdictBanner from "@/components/verdict-banner";
 import EvidenceFrame from "@/components/evidence-frame";
+import PrivateOriginal from "@/components/private-original";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { forensicsAPI } from "@/api/forensics";
-import { matchConfidence, matchMethod } from "@/lib/verdict";
+import { matchConfidence, matchMethod, showsDifferences } from "@/lib/verdict";
 import { cn } from "@/lib/utils";
 
 const TIMESTAMP = new Intl.DateTimeFormat("en-GB", {
@@ -97,7 +97,11 @@ function fromStoredCheck(check) {
   if (!check) return null;
 
   const matched = {};
-  if (check.asset_id != null) matched.original_asset_id = check.asset_id;
+  if (check.asset_id != null) {
+    matched.original_asset_id = check.asset_id;
+    matched.is_owner = Boolean(check.asset_is_owner);
+    matched.registered_at = check.asset_registered_at ?? null;
+  }
   if (check.match_method != null) matched.match_method = check.match_method;
   if (check.orb_inliers != null) matched.orb_inliers = check.orb_inliers;
   if (check.orb_inlier_ratio != null) {
@@ -320,7 +324,7 @@ export default function ComparePage() {
     if (
       !file?.file_id ||
       !originalId ||
-      file.verification_status === "VERIFIED_AUTHENTIC"
+      !showsDifferences(file.verification_status)
     )
       return undefined;
 
@@ -417,9 +421,6 @@ export default function ComparePage() {
 
   const confidence = matchConfidence(matched);
   const analysis = file.forensics?.image_analysis ?? {};
-  const edit = file.forensics?.edit_detection ?? {};
-  const colorProfile = analysis.color_profile ?? {};
-  const elaScore = edit.ela_score_normalized;
   const hasDimensions = analysis.width != null && analysis.height != null;
   const candidates = matched?.candidates;
 
@@ -482,13 +483,13 @@ export default function ComparePage() {
             <EvidenceFrame
               src={
                 file.saved_filename
-                  ? forensicsAPI.evidenceImageUrl(file.saved_filename)
+                  ? forensicsAPI.evidenceImageUrl(file.file_id)
                   : null
               }
               alt={`Submitted evidence file ${file.filename ?? ""}`}
               tag="Evidence"
               overlaySrc={
-                originalId && file.verification_status !== "VERIFIED_AUTHENTIC"
+                originalId && showsDifferences(file.verification_status)
                   ? forensicsAPI.differenceOverlayUrl(file.file_id, originalId)
                   : undefined
               }
@@ -513,12 +514,20 @@ export default function ComparePage() {
             <CardTitle>Registered original</CardTitle>
           </CardHeader>
           <CardContent>
-            <EvidenceFrame
-              src={originalId ? forensicsAPI.assetImageUrl(originalId) : null}
-              alt="Registered original this evidence was compared against"
-              tag="Baseline"
-              className="mx-auto w-full max-w-[400px]"
-            />
+            {originalId && !matched?.is_owner ? (
+              <PrivateOriginal
+                registeredAt={matched?.registered_at}
+                sha256={matched?.original_sha256}
+                className="mx-auto w-full max-w-[400px]"
+              />
+            ) : (
+              <EvidenceFrame
+                src={originalId ? forensicsAPI.assetImageUrl(originalId) : null}
+                alt="Registered original this evidence was compared against"
+                tag="Baseline"
+                className="mx-auto w-full max-w-[400px]"
+              />
+            )}
             <p className="mt-3 text-[0.75rem] text-muted-foreground">
               {originalId
                 ? "The baseline copy and its hash are kept unchanged."
@@ -547,25 +556,6 @@ export default function ComparePage() {
               {hasDimensions ? `${analysis.width} × ${analysis.height}` : "—"}
             </Row>
             <Row label="Format">{analysis.format ?? "—"}</Row>
-            <div className="py-2.5">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[0.8125rem] text-muted-foreground">
-                  Compression traces
-                </span>
-                <span className="text-[0.8125rem] font-medium">
-                  {elaScore != null ? `${Math.round(elaScore)}%` : "—"}
-                  {edit.edit_likelihood ? ` · ${edit.edit_likelihood}` : ""}
-                </span>
-              </div>
-              <Progress
-                value={elaScore != null ? Math.min(100, Math.max(0, elaScore)) : 0}
-                className="mt-2"
-                aria-label="Compression trace score"
-              />
-            </div>
-            <Row label="Colour variance">
-              {colorProfile.color_variance != null ? colorProfile.color_variance : "—"}
-            </Row>
             <Row label="How this was decided">{matchMethod(matched) ?? "—"}</Row>
           </CardContent>
         </Card>
@@ -738,7 +728,9 @@ export default function ComparePage() {
                   className="flex flex-wrap items-center justify-between gap-2 py-2.5"
                 >
                   <span className="min-w-0 truncate text-[0.8125rem] font-medium">
-                    {candidate.original_filename ?? "Untitled original"}
+                    {candidate.is_owner
+                      ? candidate.original_filename ?? "Untitled original"
+                      : "Registered by another account"}
                   </span>
                   <span className="text-[0.75rem] text-muted-foreground">
                     {candidate.orb_inliers != null

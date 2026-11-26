@@ -14,10 +14,11 @@ import {
 
 import { forensicsAPI } from "@/api/forensics";
 import EvidenceFrame from "@/components/evidence-frame";
+import PrivateOriginal from "@/components/private-original";
 import VerdictBanner from "@/components/verdict-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { matchConfidence, matchMethod } from "@/lib/verdict";
+import { matchConfidence, matchMethod, showsDifferences } from "@/lib/verdict";
 import { cn } from "@/lib/utils";
 
 const CHECKED_AT = new Intl.DateTimeFormat("en-GB", {
@@ -45,6 +46,10 @@ function publicExplanation(status) {
       return "The file you uploaded is byte-for-byte identical to an original already registered on ForenScreen. Nothing in it has been changed.";
     case "TAMPERED_MANIPULATED":
       return "This picture matches an original registered on ForenScreen, but the file itself is not the copy that was registered - it has been changed.";
+    case "RESAVED_COPY":
+      return "This is the same picture as an original registered on ForenScreen. The file has been re-saved or resized - social media platforms do this to every upload - but no changes were found in the picture itself.";
+    case "EARLIER_ORIGINAL_EXISTS":
+      return "This exact file is registered on ForenScreen, but another account registered a similar image earlier. Treat it with caution: it may be an edited copy of that earlier original.";
     case "UNREGISTERED_ASSET":
       return "This image is not in the ForenScreen registry yet, so there was nothing to compare it against. That is not a judgement about the picture - it only means no original of it has been registered.";
     case "AMBIGUOUS_MATCH":
@@ -64,6 +69,12 @@ function foundSentence(status, hasMarkedRegions) {
       return hasMarkedRegions
         ? "The picture is the same, but the file is not: it was changed after the original was registered. The outlined areas on your image mark where the two differ."
         : "The picture is the same, but the file is not: it was changed after the original was registered.";
+    case "RESAVED_COPY":
+      return "The picture matches a registered original and shows all of it. The file is not byte-for-byte the same, which is what happens when a platform re-compresses or resizes an image, but no part of the picture was found to differ.";
+    case "EARLIER_ORIGINAL_EXISTS":
+      return hasMarkedRegions
+        ? "Someone registered this exact file, but only after a similar image had already been registered by another account. The outlined areas on your image mark where it differs from that earlier original."
+        : "Someone registered this exact file, but only after a similar image had already been registered by another account.";
     case "UNREGISTERED_ASSET":
       return "No original registered on ForenScreen matches this image. It may be brand new, or it may simply never have been registered for public checking.";
     case "AMBIGUOUS_MATCH":
@@ -126,7 +137,7 @@ export default function PublicCheckPage() {
       setResult(checked);
 
       const originalAssetId = checked.matched_asset?.original_asset_id;
-      if (originalAssetId) {
+      if (originalAssetId && showsDifferences(checked.verification_status)) {
         try {
           const located = await forensicsAPI.getAlteredRegions(checked.file_id, originalAssetId);
           setRegions(located?.regions ?? []);
@@ -169,7 +180,7 @@ export default function PublicCheckPage() {
 
   const checkedAt = result?.forensics?.timeline_data?.analysis_timestamp ?? result?.uploaded_at;
   const evidenceSrc = result?.saved_filename
-    ? forensicsAPI.evidenceImageUrl(result.saved_filename)
+    ? forensicsAPI.evidenceImageUrl(result.file_id)
     : null;
   const overlaySrc = matchedOriginal && regions.length > 0
     ? forensicsAPI.differenceOverlayUrl(result.file_id, matchedOriginal.original_asset_id)
@@ -298,10 +309,17 @@ export default function PublicCheckPage() {
                     <figcaption className="text-xs text-muted-foreground">
                       The registered original
                     </figcaption>
-                    <EvidenceFrame
-                      src={forensicsAPI.assetImageUrl(matchedOriginal.original_asset_id)}
-                      alt={`The registered original: ${matchedOriginal.original_filename}`}
-                    />
+                    {matchedOriginal.is_owner ? (
+                      <EvidenceFrame
+                        src={forensicsAPI.assetImageUrl(matchedOriginal.original_asset_id)}
+                        alt={`The registered original: ${matchedOriginal.original_filename}`}
+                      />
+                    ) : (
+                      <PrivateOriginal
+                        registeredAt={matchedOriginal.registered_at}
+                        sha256={matchedOriginal.original_sha256}
+                      />
+                    )}
                   </figure>
                 )}
               </div>
@@ -327,7 +345,7 @@ export default function PublicCheckPage() {
                 </span>
               )}
 
-              {matchedOriginal && (
+              {matchedOriginal?.is_owner && (
                 <span className="flex min-w-0 items-center gap-1.5">
                   <FileText className="size-3.5 shrink-0" />
                   <span className="truncate">Matched: {matchedOriginal.original_filename}</span>

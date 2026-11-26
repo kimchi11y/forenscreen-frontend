@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { AlertTriangle, ImageOff, Loader2, ScanSearch, Upload } from "lucide-react";
+import { ImageOff, Loader2, ScanSearch, Upload } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
 import EvidenceFrame from "@/components/evidence-frame";
+import PrivateOriginal from "@/components/private-original";
 import VerdictBanner from "@/components/verdict-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { forensicsAPI } from "@/api/forensics";
 import { cn } from "@/lib/utils";
-import { matchConfidence } from "@/lib/verdict";
+import { matchConfidence, showsDifferences } from "@/lib/verdict";
 
 /** Sentinel for "search the whole registry instead of one original". */
 const ALL_SCOPE = "__all__";
@@ -76,18 +76,6 @@ function formatBytes(bytes) {
 function truncateHash(hash) {
   if (!hash) return "—";
   return hash.length > 17 ? `${hash.slice(0, 16)}…` : hash;
-}
-
-/**
- * Backend indicator strings arrive prefixed with an emoji decoration. Strip it
- * so the list reads as text; the warning icon already carries the meaning.
- */
-function withoutEmoji(value) {
-  const text = String(value ?? "").trim();
-  const stripped = text
-    .replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\u20E3\u{1F3FB}-\u{1F3FF}\s]+/u, "")
-    .trim();
-  return stripped || text;
 }
 
 /** One label/value line under an evidence frame. */
@@ -168,7 +156,7 @@ export default function AnalyzePage() {
   // original. While it loads (or if it fails) the frames simply render clean.
   useEffect(() => {
     const originalAssetId = result?.matched_asset?.original_asset_id;
-    if (result?.verification_status !== "TAMPERED_MANIPULATED" || !originalAssetId) {
+    if (!showsDifferences(result?.verification_status) || !originalAssetId) {
       setDiff({ status: "idle", regions: [], overlaySrc: null });
       return undefined;
     }
@@ -253,27 +241,11 @@ export default function AnalyzePage() {
   }
 
   const analysis = result?.forensics?.image_analysis ?? null;
-  const editDetection = result?.forensics?.edit_detection ?? null;
 
   const dimensions =
     analysis?.width != null && analysis?.height != null
       ? `${analysis.width} × ${analysis.height}`
       : "—";
-
-  const colorVariance = analysis?.color_profile?.color_variance;
-  const varianceText =
-    typeof colorVariance === "number"
-      ? colorVariance.toLocaleString(undefined, { maximumFractionDigits: 1 })
-      : "—";
-
-  const ela =
-    typeof editDetection?.ela_score_normalized === "number"
-      ? Math.max(0, Math.min(100, editDetection.ela_score_normalized))
-      : null;
-
-  const indicators = Array.isArray(result?.forensics?.manipulation_indicators)
-    ? result.forensics.manipulation_indicators.filter(Boolean)
-    : [];
 
   const candidates = Array.isArray(result?.matched_asset?.candidates)
     ? result.matched_asset.candidates
@@ -281,14 +253,16 @@ export default function AnalyzePage() {
 
   const matchedAsset = result?.matched_asset ?? null;
   const originalAssetId = matchedAsset?.original_asset_id ?? null;
-  const isTampered = result?.verification_status === "TAMPERED_MANIPULATED";
+  const isTampered = showsDifferences(result?.verification_status);
 
-  // Registration date is not part of the check response, so it comes from the
-  // registry list when the original is one of ours. Otherwise it stays blank.
+  // Checks match against every account's originals, but only the owner may
+  // see an original's image and filename.
+  const ownsOriginal = Boolean(matchedAsset?.is_owner);
   const originalAsset = useMemo(
     () => assets.find((asset) => String(asset.id) === String(originalAssetId)) ?? null,
     [assets, originalAssetId],
   );
+  const originalRegisteredAt = matchedAsset?.registered_at ?? originalAsset?.created_at ?? null;
 
   const scopeName =
     scope === ALL_SCOPE
@@ -487,7 +461,9 @@ export default function AnalyzePage() {
                           className="truncate text-[0.8125rem] font-medium"
                           title={candidate.original_filename}
                         >
-                          {candidate.original_filename || "Unnamed original"}
+                          {candidate.is_owner
+                            ? candidate.original_filename || "Unnamed original"
+                            : "Registered by another account"}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {candidate.orb_inliers != null
@@ -525,7 +501,7 @@ export default function AnalyzePage() {
                   <EvidenceFrame
                     src={
                       result.saved_filename
-                        ? forensicsAPI.evidenceImageUrl(result.saved_filename)
+                        ? forensicsAPI.evidenceImageUrl(result.file_id)
                         : undefined
                     }
                     alt={
@@ -575,7 +551,13 @@ export default function AnalyzePage() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {originalAssetId ? (
+                  {originalAssetId && !ownsOriginal ? (
+                    <PrivateOriginal
+                      registeredAt={originalRegisteredAt}
+                      sha256={matchedAsset?.original_sha256}
+                      className="mx-auto max-w-[400px]"
+                    />
+                  ) : originalAssetId ? (
                     <>
                       <EvidenceFrame
                         src={forensicsAPI.assetImageUrl(originalAssetId)}
@@ -585,8 +567,8 @@ export default function AnalyzePage() {
                             : "Registered original"
                         }
                         tag={
-                          originalAsset?.created_at
-                            ? `Registered ${formatDate(originalAsset.created_at)}`
+                          originalRegisteredAt
+                            ? `Registered ${formatDate(originalRegisteredAt)}`
                             : "Registered original"
                         }
                         className="mx-auto max-w-[400px]"
@@ -600,7 +582,7 @@ export default function AnalyzePage() {
                       <ImageOff className="size-5 text-muted-foreground" aria-hidden="true" />
                       <p className="text-sm font-medium">No matching original</p>
                       <p className="text-xs text-muted-foreground">
-                        Nothing in your registry matched this image.
+                        No registered original matched this image.
                       </p>
                     </div>
                   )}
@@ -618,84 +600,9 @@ export default function AnalyzePage() {
                     <MetaRow label="Format" value="—" />
                     <MetaRow
                       label="Registered"
-                      value={originalAsset?.created_at ? formatDateTime(originalAsset.created_at) : "—"}
+                      value={originalRegisteredAt ? formatDateTime(originalRegisteredAt) : "—"}
                     />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid gap-5 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Forensic breakdown</CardTitle>
-                  {result.forensics?.timeline_data?.analysis_timestamp && (
-                    <CardAction>
-                      <Badge variant="outline">
-                        {formatDateTime(result.forensics.timeline_data.analysis_timestamp)}
-                      </Badge>
-                    </CardAction>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3 text-[0.8125rem]">
-                      <span className="font-medium">
-                        Edit likelihood{" "}
-                        <span className="font-normal text-muted-foreground">
-                          — compression traces (ELA)
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-medium tabular-nums">
-                        {ela != null ? `${Math.round(ela)}/100` : "—"}
-                      </span>
-                    </div>
-                    <Progress value={ela ?? 0} aria-label="ELA edit likelihood score" />
-                    <p className="text-xs text-muted-foreground">
-                      ELA is a supporting signal only — it is not the basis for the verdict above.
-                    </p>
-                  </div>
-
-                  <div>
-                    <MetaRow label="Dimensions" value={dimensions} />
-                    <MetaRow label="Format" value={analysis?.format} />
-                    <MetaRow label="Colour variance" value={varianceText} />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Manipulation indicators</CardTitle>
-                  {indicators.length > 0 && (
-                    <CardAction>
-                      <Badge variant="outline">
-                        {indicators.length} {indicators.length === 1 ? "signal" : "signals"}
-                      </Badge>
-                    </CardAction>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  {indicators.length > 0 ? (
-                    <ul className="space-y-3">
-                      {indicators.map((indicator, index) => (
-                        <li key={index} className="flex items-start gap-3">
-                          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-                            <AlertTriangle className="size-4" aria-hidden="true" />
-                          </span>
-                          <p className="text-[0.8125rem] leading-relaxed">{withoutEmoji(indicator)}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[0.8125rem] text-muted-foreground">
-                      No manipulation indicators were reported for this file.
-                    </p>
-                  )}
-                  <p className="mt-4 text-xs text-muted-foreground">
-                    Indicators support the verdict above. They are not shown publicly when you
-                    share this result.
-                  </p>
                 </CardContent>
               </Card>
             </div>

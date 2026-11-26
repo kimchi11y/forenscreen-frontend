@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useApiImage } from "@/lib/use-api-image";
 import { cn } from "@/lib/utils";
 
 /**
@@ -24,6 +25,9 @@ export default function EvidenceFrame({
   imageClassName,
 }) {
   const [imageAspect, setImageAspect] = useState(null);
+  // API images are fetched with the sign-in token; see useApiImage.
+  const { src: imageSrc } = useApiImage(src);
+  const { src: overlayImageSrc } = useApiImage(overlaySrc);
 
   return (
     <div
@@ -33,9 +37,9 @@ export default function EvidenceFrame({
       )}
       style={{ aspectRatio: imageAspect ?? aspect }}
     >
-      {src ? (
+      {imageSrc ? (
         <img
-          src={src}
+          src={imageSrc}
           alt={alt ?? ""}
           className={cn("size-full object-contain", imageClassName)}
           onLoad={(event) => {
@@ -49,9 +53,9 @@ export default function EvidenceFrame({
         <div className="size-full bg-gradient-to-br from-muted to-accent" />
       )}
 
-      {overlaySrc && (
+      {overlayImageSrc && (
         <img
-          src={overlaySrc}
+          src={overlayImageSrc}
           alt=""
           aria-hidden="true"
           className="absolute inset-0 size-full object-contain"
