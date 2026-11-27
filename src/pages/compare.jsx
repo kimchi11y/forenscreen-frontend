@@ -468,7 +468,11 @@ export default function ComparePage() {
         </p>
       )}
 
-      <VerdictBanner status={file.verification_status} confidence={confidence} />
+      <VerdictBanner
+        status={file.verification_status}
+        ownsOriginal={Boolean(matched?.is_owner)}
+        confidence={confidence}
+      />
 
       <section
         aria-label="Evidence compared with the registered original"

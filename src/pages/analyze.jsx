@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { ImageOff, Loader2, ScanSearch, Upload } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowRight, ImageOff, Loader2, ScanSearch, Upload } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
 import EvidenceFrame from "@/components/evidence-frame";
@@ -278,7 +278,7 @@ export default function AnalyzePage() {
 
   const verdictDescription =
     isTampered && matchedAsset?.original_filename
-      ? `This looks like your registered ${matchedAsset.original_filename}, but the file itself has changed.`
+      ? `This looks like ${ownsOriginal ? "your" : "the"} registered ${matchedAsset.original_filename}, but the file itself has changed.`
       : undefined;
 
   return (
@@ -437,12 +437,25 @@ export default function AnalyzePage() {
           <>
             <VerdictBanner
               status={result.verification_status}
+              ownsOriginal={ownsOriginal}
               description={verdictDescription}
               confidence={matchConfidence(matchedAsset)}
               actions={
-                <Button type="button" variant="outline" size="sm" onClick={reset}>
-                  Run another check
-                </Button>
+                <>
+                  {/* Share and the PDF report live on the comparison page,
+                      which only exists for a check that was saved. */}
+                  {result.persisted && result.file_id && (
+                    <Button asChild size="sm">
+                      <Link to={`/compare/${result.file_id}`}>
+                        View full comparison
+                        <ArrowRight data-icon="inline-end" />
+                      </Link>
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={reset}>
+                    Run another check
+                  </Button>
+                </>
               }
             />
 

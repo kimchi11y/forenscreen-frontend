@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  Bell,
   Puzzle,
   Image as ImageIcon,
   LayoutDashboard,
@@ -173,7 +172,6 @@ function MobileNav({ open, onOpenChange, ...sidebarProps }) {
  * column. Pages render their own heading inside it via <PageHeader>.
  */
 export default function AppShell() {
-  const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, loading, configured, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
@@ -227,7 +225,8 @@ export default function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur sm:gap-4 sm:px-5 lg:h-[60px] lg:px-6">
+        {/* Only phones and tablets need a top bar: it holds the menu button. */}
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur sm:gap-4 sm:px-5 lg:hidden">
           <MobileNav
             open={menuOpen}
             onOpenChange={setMenuOpen}
@@ -243,27 +242,6 @@ export default function AppShell() {
             </span>
             <span className="text-[0.9375rem] font-semibold tracking-tight">ForenScreen</span>
           </Link>
-
-          <div className="ml-auto flex items-center gap-2">
-            {pathname !== "/check" && (
-              <Link
-                to="/check"
-                aria-label="Public check"
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-[0.8125rem] font-medium transition-colors hover:bg-accent sm:h-8"
-              >
-                <Search className="size-3.5" />
-                <span className="hidden sm:inline">Public check</span>
-              </Link>
-            )}
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="relative hidden size-8 place-items-center lg:grid rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <Bell className="size-4" />
-              <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
-            </button>
-          </div>
         </header>
 
         <main className="mx-auto w-full max-w-[1240px] px-4 pb-16 pt-5 sm:px-5 sm:pt-7 lg:px-6">

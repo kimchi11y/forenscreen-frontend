@@ -14,6 +14,10 @@ import {
  * renders a verdict - pills, banners, tables, the result page - reads from
  * here, so the wording cannot drift between screens.
  *
+ * `others` replaces the headline/explanation when the matched original belongs
+ * to someone else (or nobody's original matched): "This is your original" is
+ * only true for its owner.
+ *
  * `tone` selects a colour family from index.css. A verdict is always rendered
  * as icon + text label, never colour alone, so it survives greyscale printing
  * and colour-blind readers.
@@ -72,6 +76,11 @@ export const VERDICTS = {
     Icon: CheckCircle2,
     explanation:
       "This file is byte-for-byte identical to the copy you registered. Nothing has changed.",
+    others: {
+      headline: "This is a registered original",
+      explanation:
+        "This file is byte-for-byte identical to an original registered on ForenScreen. Nothing has changed.",
+    },
   },
   TAMPERED_MANIPULATED: {
     label: "Modified copy detected",
@@ -80,6 +89,10 @@ export const VERDICTS = {
     Icon: XCircle,
     explanation:
       "This looks like your registered image, but the file itself has been changed.",
+    others: {
+      explanation:
+        "This looks like an image registered on ForenScreen, but the file itself has been changed.",
+    },
   },
   EARLIER_ORIGINAL_EXISTS: {
     label: "Earlier similar original found",
@@ -104,6 +117,10 @@ export const VERDICTS = {
     Icon: AlertTriangle,
     explanation:
       "Nothing in your registry matches this image. Register it now to protect it from here on.",
+    others: {
+      explanation:
+        "Nothing registered on ForenScreen matches this image. If it is yours, register it now to protect it from here on.",
+    },
   },
   AMBIGUOUS_MATCH: {
     label: "Needs confirmation",
@@ -112,6 +129,10 @@ export const VERDICTS = {
     Icon: HelpCircle,
     explanation:
       "More than one of your registered images matches this one. Pick the right original to finish the check.",
+    others: {
+      explanation:
+        "More than one registered image matches this one. Pick the right original to finish the check.",
+    },
   },
   PROCESSING_ERROR: {
     label: "Could not read file",
@@ -132,9 +153,13 @@ export const VERDICTS = {
 
 const FALLBACK = VERDICTS.UNKNOWN_ASSET;
 
-/** Look up a verdict by the backend's enum, never throwing on an unknown value. */
-export function verdict(status) {
-  return VERDICTS[status] ?? FALLBACK;
+/**
+ * Look up a verdict by the backend's enum, never throwing on an unknown value.
+ * Pass `ownsOriginal: false` unless the viewer owns the matched original.
+ */
+export function verdict(status, { ownsOriginal = true } = {}) {
+  const v = VERDICTS[status] ?? FALLBACK;
+  return ownsOriginal || !v.others ? v : { ...v, ...v.others };
 }
 
 /** Colour classes for a tone, with a safe default. */
