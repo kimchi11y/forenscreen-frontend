@@ -152,7 +152,11 @@ export default function DashboardPage() {
           : null,
         sampled: list ? checks.value.total > list.length : false,
       });
-      setActivity(recent.status === "fulfilled" ? recent.value.activity ?? [] : []);
+      // A failed load must not read as "nothing yet": that is a different claim.
+      setActivity(recent.status === "fulfilled" ? recent.value.activity ?? [] : "error");
+      if (recent.status === "rejected") {
+        console.warn("ForenScreen: could not load activity.", recent.reason);
+      }
     }
 
     loadSummary();
@@ -318,6 +322,10 @@ export default function DashboardPage() {
           <CardContent>
             {activity === null ? (
               <Skeleton className="h-10 w-full" />
+            ) : activity === "error" ? (
+              <p role="alert" className="py-4 text-sm text-destructive">
+                Your activity could not be loaded. Refresh the page to try again.
+              </p>
             ) : activity.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
                 Nothing yet. When someone checks a copy of one of your originals, or registers a

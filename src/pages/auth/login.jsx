@@ -119,20 +119,9 @@ function LoginPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[0.8125rem]">
-                  Password
-                </Label>
-                <button
-                  type="button"
-                  aria-disabled="true"
-                  title="Password reset isn't available yet — contact support to reset your password."
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Forgot password?
-                  <span className="sr-only"> (password reset isn't available yet)</span>
-                </button>
-              </div>
+              <Label htmlFor="password" className="text-[0.8125rem]">
+                Password
+              </Label>
               <div className="relative">
                 <Input
                   id="password"

@@ -282,7 +282,12 @@ export default function PublicCheckPage() {
           </CardHeader>
 
           <CardContent className="flex flex-col gap-5">
-            <VerdictBanner status={status} description={publicExplanation(status)} confidence={confidence} />
+            <VerdictBanner
+              status={status}
+              ownsOriginal={false}
+              description={publicExplanation(status)}
+              confidence={confidence}
+            />
 
             {evidenceSrc && (
               <div

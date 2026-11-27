@@ -278,7 +278,7 @@ export default function AnalyzePage() {
 
   const verdictDescription =
     isTampered && matchedAsset?.original_filename
-      ? `This looks like your registered ${matchedAsset.original_filename}, but the file itself has changed.`
+      ? `This looks like ${ownsOriginal ? "your" : "the"} registered ${matchedAsset.original_filename}, but the file itself has changed.`
       : undefined;
 
   return (
@@ -437,6 +437,7 @@ export default function AnalyzePage() {
           <>
             <VerdictBanner
               status={result.verification_status}
+              ownsOriginal={ownsOriginal}
               description={verdictDescription}
               confidence={matchConfidence(matchedAsset)}
               actions={

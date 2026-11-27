@@ -90,7 +90,11 @@ export default function SharedPage() {
         </p>
       </section>
 
-      <VerdictBanner status={shared.verification_status} description={verdict(shared.verification_status).explanation} />
+      <VerdictBanner
+        status={shared.verification_status}
+        ownsOriginal={false}
+        description={verdict(shared.verification_status, { ownsOriginal: false }).explanation}
+      />
 
       <div className={original ? "grid gap-5 sm:grid-cols-2" : "mx-auto w-full max-w-[400px]"}>
         <figure className="flex flex-col gap-2">

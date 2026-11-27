@@ -30,8 +30,15 @@ export function VerdictPill({ status, label, className }) {
  * `status` is the raw backend enum; the wording, tone and icon all come from
  * lib/verdict.js so they cannot drift from the rest of the app.
  */
-export default function VerdictBanner({ status, description, confidence, actions, className }) {
-  const v = lookup(status);
+export default function VerdictBanner({
+  status,
+  ownsOriginal = true,
+  description,
+  confidence,
+  actions,
+  className,
+}) {
+  const v = lookup(status, { ownsOriginal });
   const t = tone(v.tone);
   const { Icon } = v;
 
