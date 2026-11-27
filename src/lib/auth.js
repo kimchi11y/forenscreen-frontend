@@ -51,6 +51,17 @@ export const signOutUser = () => call((client) => client.signOut());
 export const fetchSession = () => call((client) => client.getSession());
 
 /**
+ * The server checks `currentPassword` itself, so a hijacked browser tab cannot
+ * change the password without knowing it. Other sessions are revoked: if the
+ * password is being changed because it leaked, whoever else holds a session
+ * must lose it too.
+ */
+export const changeUserPassword = ({ currentPassword, newPassword }) =>
+  call((client) =>
+    client.changePassword({ currentPassword, newPassword, revokeOtherSessions: true })
+  );
+
+/**
  * A short-lived JWT (EdDSA, ~15 minutes) for calling the API.
  *
  * The backend verifies this against Neon's JWKS rather than trusting anything
