@@ -592,7 +592,7 @@ function SimilarComparison({ file, earlierPreview }) {
   useEffect(() => () => URL.revokeObjectURL(ownSrc), [ownSrc]);
 
   return (
-    <div className="grid max-w-[520px] grid-cols-2 gap-3">
+    <div className="grid max-w-[520px] gap-3 min-[420px]:grid-cols-2">
       <figure className="flex flex-col gap-1.5">
         <figcaption className="text-xs font-medium">Your image</figcaption>
         <EvidenceFrame src={ownSrc} alt={`Your image: ${file.name}`} />
@@ -992,12 +992,12 @@ export default function RegistryPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="px-4">File</TableHead>
-                <TableHead className="px-4">Perceptual hash</TableHead>
-                <TableHead className="px-4">SHA-256</TableHead>
-                <TableHead className="px-4">Anchor</TableHead>
-                <TableHead className="px-4">Registered</TableHead>
-                <TableHead className="w-12 px-4">
+                <TableHead className="px-3 sm:px-4">File</TableHead>
+                <TableHead className="hidden px-3 sm:px-4 md:table-cell">Perceptual hash</TableHead>
+                <TableHead className="hidden px-3 sm:px-4 md:table-cell">SHA-256</TableHead>
+                <TableHead className="px-3 sm:px-4">Anchor</TableHead>
+                <TableHead className="hidden px-3 sm:px-4 sm:table-cell">Registered</TableHead>
+                <TableHead className="w-12 px-3 sm:px-4">
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -1006,25 +1006,25 @@ export default function RegistryPage() {
               {loading &&
                 [0, 1, 2].map((row) => (
                   <TableRow key={row}>
-                    <TableCell className="px-4">
+                    <TableCell className="px-3 sm:px-4">
                       <div className="flex items-center gap-3">
                         <Skeleton className="size-8 rounded-lg" />
-                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-4 w-28 sm:w-40" />
                       </div>
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="hidden px-3 sm:px-4 md:table-cell">
                       <Skeleton className="h-4 w-24" />
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="hidden px-3 sm:px-4 md:table-cell">
                       <Skeleton className="h-4 w-28" />
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="px-3 sm:px-4">
                       <Skeleton className="h-4 w-16" />
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="hidden px-3 sm:px-4 sm:table-cell">
                       <Skeleton className="h-4 w-20" />
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="px-3 sm:px-4">
                       <Skeleton className="size-7 rounded-lg" />
                     </TableCell>
                   </TableRow>
@@ -1032,7 +1032,7 @@ export default function RegistryPage() {
 
               {isEmpty && (
                 <TableRow>
-                  <TableCell colSpan={6} className="px-4 py-14">
+                  <TableCell colSpan={6} className="px-3 sm:px-4 py-14">
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 text-center">
                       <span className="grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
                         <ImageIcon className="size-5" aria-hidden="true" />
@@ -1078,18 +1078,24 @@ export default function RegistryPage() {
                       highlightId === asset.id && "bg-primary/[0.07]",
                     )}
                   >
-                    <TableCell className="px-4">
-                      <div className="flex items-center gap-3">
+                    <TableCell className="px-3 sm:px-4">
+                      <div className="flex min-w-0 items-center gap-3">
                         <AssetThumb assetId={asset.id} />
-                        <span
-                          className="max-w-[240px] truncate font-medium"
-                          title={asset.file_name}
-                        >
-                          {asset.file_name}
+                        <span className="flex min-w-0 flex-col">
+                          <span
+                            className="max-w-[120px] truncate font-medium sm:max-w-[240px]"
+                            title={asset.file_name}
+                          >
+                            {asset.file_name}
+                          </span>
+                          {/* The Registered column is hidden on phones. */}
+                          <span className="text-xs text-muted-foreground tabular-nums sm:hidden">
+                            {formatDate(asset.created_at)}
+                          </span>
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="hidden px-3 sm:px-4 md:table-cell">
                       <code
                         className="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground"
                         title={asset.phash}
@@ -1097,7 +1103,7 @@ export default function RegistryPage() {
                         {asset.phash || "—"}
                       </code>
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="hidden px-3 sm:px-4 md:table-cell">
                       <span
                         className="font-mono text-[0.6875rem] text-muted-foreground"
                         title={asset.sha256}
@@ -1105,14 +1111,14 @@ export default function RegistryPage() {
                         {asset.sha256 ? `${asset.sha256.slice(0, 24)}…` : "—"}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4">
+                    <TableCell className="px-3 sm:px-4">
                       <AnchorIndicator summary={anchorSummaries[asset.id]} />
                     </TableCell>
-                    <TableCell className="px-4 text-muted-foreground tabular-nums">
+                    <TableCell className="hidden px-3 sm:px-4 text-muted-foreground tabular-nums sm:table-cell">
                       {formatDate(asset.created_at)}
                     </TableCell>
                     <TableCell
-                      className="px-4 text-right"
+                      className="px-3 sm:px-4 text-right"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <DropdownMenu>

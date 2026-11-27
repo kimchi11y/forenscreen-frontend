@@ -1,5 +1,12 @@
 import { Link, Outlet } from "react-router-dom";
-import { ShieldCheck } from "lucide-react";
+import { Menu, ShieldCheck } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * Frame for the marketing and public-verification pages: a slim header and
@@ -10,7 +17,7 @@ export default function PublicLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-[60px] w-full max-w-[1200px] items-center gap-4 px-5 lg:px-6">
+        <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center gap-3 px-4 sm:h-[60px] sm:gap-4 sm:px-5 lg:px-6">
           <Link to="/" className="flex items-center gap-2.5">
             <span className="grid size-[30px] place-items-center rounded-[9px] bg-primary text-primary-foreground shadow-md">
               <ShieldCheck className="size-4" />
@@ -30,16 +37,39 @@ export default function PublicLayout() {
             </Link>
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="More pages"
+                className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+              >
+                <Menu className="size-5" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem asChild className="py-2">
+                  <a href="/#how-it-works">How it works</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="py-2">
+                  <a href="/#verdicts">Verdicts</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="py-2">
+                  <Link to="/verify">Verify a fingerprint</Link>
+                </DropdownMenuItem>
+                {/* The header's own Sign in link is hidden on the narrowest screens. */}
+                <DropdownMenuItem asChild className="py-2 sm:hidden">
+                  <Link to="/login">Sign in</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Link
               to="/login"
-              className="inline-flex h-8 items-center rounded-lg px-2.5 text-[0.8125rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              className="hidden h-9 items-center rounded-lg px-2.5 text-[0.8125rem] font-medium whitespace-nowrap text-muted-foreground sm:inline-flex sm:h-8 transition-colors hover:bg-accent hover:text-foreground"
             >
               Sign in
             </Link>
             <Link
               to="/check"
-              className="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-[0.8125rem] font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+              className="inline-flex h-9 items-center rounded-lg bg-primary px-3 text-[0.8125rem] font-medium whitespace-nowrap text-primary-foreground sm:h-8 shadow-sm transition-colors hover:bg-primary/90"
             >
               Check an image
             </Link>
@@ -52,12 +82,12 @@ export default function PublicLayout() {
       </main>
 
       <footer className="border-t border-border">
-        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-5 py-6 text-xs text-muted-foreground lg:px-6">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:px-5 lg:px-6">
           <span className="flex items-center gap-2">
             <ShieldCheck className="size-3.5" />
             ForenScreen — digital evidence integrity
           </span>
-          <span className="flex items-center gap-4">
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link to="/check" className="transition-colors hover:text-foreground">
               Check an image
             </Link>
