@@ -47,7 +47,7 @@ const QUICK_ACTIONS = [
     to: "/check",
     Icon: Search,
     title: "Public check",
-    description: "Share a link anyone can verify — no account needed.",
+    description: "Check any image without an account.",
   },
 ];
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  ArrowRight,
   Clock,
   EyeOff,
   FileText,
@@ -18,6 +19,7 @@ import PrivateOriginal from "@/components/private-original";
 import VerdictBanner from "@/components/verdict-banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth";
 import { matchConfidence, matchMethod, showsDifferences } from "@/lib/verdict";
 import { cn } from "@/lib/utils";
 
@@ -104,6 +106,9 @@ function ExplainStep({ number, title, children }) {
 }
 
 export default function PublicCheckPage() {
+  // A signed-in visitor's check is saved to their account, so it has a
+  // comparison page they can open. Anyone else's has no owner and cannot.
+  const { user } = useAuth();
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -287,6 +292,16 @@ export default function PublicCheckPage() {
               ownsOriginal={false}
               description={publicExplanation(status)}
               confidence={confidence}
+              actions={
+                user && result.persisted && result.file_id ? (
+                  <Button asChild size="sm">
+                    <Link to={`/compare/${result.file_id}`}>
+                      View full comparison
+                      <ArrowRight data-icon="inline-end" />
+                    </Link>
+                  </Button>
+                ) : null
+              }
             />
 
             {evidenceSrc && (

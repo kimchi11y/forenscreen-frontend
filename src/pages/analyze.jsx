@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { ImageOff, Loader2, ScanSearch, Upload } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowRight, ImageOff, Loader2, ScanSearch, Upload } from "lucide-react";
 
 import { PageHeader } from "@/components/app-shell";
 import EvidenceFrame from "@/components/evidence-frame";
@@ -441,9 +441,21 @@ export default function AnalyzePage() {
               description={verdictDescription}
               confidence={matchConfidence(matchedAsset)}
               actions={
-                <Button type="button" variant="outline" size="sm" onClick={reset}>
-                  Run another check
-                </Button>
+                <>
+                  {/* Share and the PDF report live on the comparison page,
+                      which only exists for a check that was saved. */}
+                  {result.persisted && result.file_id && (
+                    <Button asChild size="sm">
+                      <Link to={`/compare/${result.file_id}`}>
+                        View full comparison
+                        <ArrowRight data-icon="inline-end" />
+                      </Link>
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={reset}>
+                    Run another check
+                  </Button>
+                </>
               }
             />
 
