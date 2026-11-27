@@ -130,16 +130,15 @@ export default function DashboardPage() {
   }, []);
 
   // Counts for the stat cards, and what other people did with your originals.
-  const [summary, setSummary] = useState(null); // { checks, modified, sampled, openCases }
+  const [summary, setSummary] = useState(null); // { checks, modified, sampled }
   const [activity, setActivity] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadSummary() {
-      const [checks, cases, recent] = await Promise.allSettled([
+      const [checks, recent] = await Promise.allSettled([
         forensicsAPI.listChecks({ limit: 100 }),
-        forensicsAPI.listCases(),
         forensicsAPI.getActivity(),
       ]);
       if (cancelled) return;
@@ -152,10 +151,6 @@ export default function DashboardPage() {
             ).length
           : null,
         sampled: list ? checks.value.total > list.length : false,
-        openCases:
-          cases.status === "fulfilled"
-            ? (cases.value.cases ?? []).filter((c) => c.status === "open").length
-            : null,
       });
       setActivity(recent.status === "fulfilled" ? recent.value.activity ?? [] : []);
     }
@@ -186,7 +181,7 @@ export default function DashboardPage() {
         {/* ------------------------------- stats ------------------------------- */}
         <section
           aria-label="Registry summary"
-          className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1"
         >
           <StatCard
             label="Registered originals"
@@ -207,7 +202,6 @@ export default function DashboardPage() {
             value={statValue(summary?.modified)}
             foot={summary?.sampled ? "In your last 100 checks" : "In your checks"}
           />
-          <StatCard label="Open cases" value={statValue(summary?.openCases)} foot="Grouping evidence" />
         </section>
 
         {error && (

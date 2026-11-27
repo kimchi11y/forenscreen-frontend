@@ -105,10 +105,9 @@ export const forensicsAPI = {
    * out of an AMBIGUOUS_MATCH result - the backend compares against that
    * original only instead of searching the whole registry.
    */
-  async uploadEvidence(file, { caseId = null, originalAssetId = null, submitterMetadata = null } = {}) {
+  async uploadEvidence(file, { originalAssetId = null, submitterMetadata = null } = {}) {
     const form = new FormData();
     form.append("file", file);
-    if (caseId) form.append("case_id", caseId);
     if (originalAssetId) form.append("original_asset_id", originalAssetId);
     if (submitterMetadata) {
       form.append("submitter_metadata", JSON.stringify(submitterMetadata));
@@ -225,37 +224,6 @@ export const forensicsAPI = {
 
   getSharedRegions(token) {
     return get(`/shared/${encodeURIComponent(token)}/altered-regions`);
-  },
-
-  /** The signed-in user's cases, newest first, with item counts. */
-  listCases() {
-    return get("/cases");
-  },
-
-  /** One case with its originals and checks. */
-  getCase(caseId) {
-    return get(`/cases/${caseId}`);
-  },
-
-  createCase({ title, summary }) {
-    return sendJson("POST", "/cases", { title, summary });
-  },
-
-  /** Change any of `title`, `summary` or `status` ("open" | "closed"). */
-  updateCase(caseId, fields) {
-    return sendJson("PATCH", `/cases/${caseId}`, fields);
-  },
-
-  /** `subjectType` is "asset" (an original) or "evidence" (a check). */
-  addCaseItem(caseId, subjectType, subjectId) {
-    return sendJson("POST", `/cases/${caseId}/items`, {
-      subject_type: subjectType,
-      subject_id: subjectId,
-    });
-  },
-
-  removeCaseItem(caseId, subjectType, subjectId) {
-    return sendJson("DELETE", `/cases/${caseId}/items/${subjectType}/${subjectId}`);
   },
 
   /** Who the API believes we are. */

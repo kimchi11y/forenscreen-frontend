@@ -37,7 +37,7 @@ The token is deliberately weak:
 
 - It can only **register originals** and ask whose it is (`/upload-asset/`,
   `/me`). The backend refuses it everywhere else, so it cannot read your
-  registry, checks, cases or images.
+  registry, checks or images.
 - It lasts 90 days, the server stores only its hash, and you can disconnect it
   at any time from the **Browser extension** page.
 

@@ -149,7 +149,7 @@ export default function ExtensionPage() {
             )}
             <p className="text-xs text-muted-foreground">
               The extension gets its own sign-in that lasts 90 days and can only register
-              originals. It cannot see your registry, checks or cases.
+              originals. It cannot see your registry or checks.
             </p>
           </CardContent>
         </Card>

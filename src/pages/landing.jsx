@@ -4,7 +4,6 @@ import {
   Camera,
   Eye,
   Fingerprint,
-  FolderOpen,
   Hash,
   Image as ImageIcon,
   Lock,
@@ -70,11 +69,6 @@ const BUILT_FOR = [
     Icon: Camera,
     title: "Screenshots welcome",
     body: "ForenScreen works on the images you already have. There is no special capture app to install and nothing to take before the fact.",
-  },
-  {
-    Icon: FolderOpen,
-    title: "Group evidence into cases",
-    body: "Keep every file from one incident together in a named case, so the story stays in order when you need to look back at it.",
   },
   {
     Icon: Eye,
@@ -261,7 +255,7 @@ export default function LandingPage() {
             No evidence kit required — just the files an incident leaves behind.
           </SectionHeading>
 
-          <div className="grid gap-8 md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-2">
             {BUILT_FOR.map(({ Icon, title, body }) => (
               <div key={title}>
                 <Icon className="size-5 text-primary" />
