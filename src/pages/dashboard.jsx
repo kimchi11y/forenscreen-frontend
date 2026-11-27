@@ -186,7 +186,7 @@ export default function DashboardPage() {
         {/* ------------------------------- stats ------------------------------- */}
         <section
           aria-label="Registry summary"
-          className="grid grid-cols-2 gap-4 lg:grid-cols-4"
+          className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
         >
           <StatCard
             label="Registered originals"
@@ -247,8 +247,8 @@ export default function DashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="px-4">File</TableHead>
-                  <TableHead className="px-4">Perceptual hash</TableHead>
-                  <TableHead className="px-4">Cryptographic hash</TableHead>
+                  <TableHead className="hidden px-4 md:table-cell">Perceptual hash</TableHead>
+                  <TableHead className="hidden px-4 md:table-cell">Cryptographic hash</TableHead>
                   <TableHead className="px-4">Registered</TableHead>
                 </TableRow>
               </TableHeader>
@@ -259,13 +259,13 @@ export default function DashboardPage() {
                       <TableCell className="px-4">
                         <div className="flex items-center gap-3">
                           <Skeleton className="size-8 rounded-lg" />
-                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-4 w-28 sm:w-40" />
                         </div>
                       </TableCell>
-                      <TableCell className="px-4">
+                      <TableCell className="hidden px-4 md:table-cell">
                         <Skeleton className="h-4 w-28" />
                       </TableCell>
-                      <TableCell className="px-4">
+                      <TableCell className="hidden px-4 md:table-cell">
                         <Skeleton className="h-4 w-32" />
                       </TableCell>
                       <TableCell className="px-4">
@@ -289,19 +289,19 @@ export default function DashboardPage() {
                   assets.map((asset) => (
                     <TableRow key={asset.id}>
                       <TableCell className="px-4">
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <AssetThumb assetId={asset.id} />
-                          <span className="max-w-[240px] truncate font-medium">
+                          <span className="max-w-[150px] truncate font-medium sm:max-w-[240px]">
                             {asset.file_name}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4">
+                      <TableCell className="hidden px-4 md:table-cell">
                         <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted-foreground">
                           {asset.phash || "—"}
                         </code>
                       </TableCell>
-                      <TableCell className="px-4">
+                      <TableCell className="hidden px-4 md:table-cell">
                         <span className="font-mono text-[0.6875rem] text-muted-foreground">
                           {asset.sha256 ? `${asset.sha256.slice(0, 16)}…` : "—"}
                         </span>
