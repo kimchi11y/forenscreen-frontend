@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
 import { fetchSession, useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -51,7 +50,6 @@ function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [pendingEmail, setPendingEmail] = useState("")
@@ -75,9 +73,7 @@ function SignupPage() {
               ? "Add at least one number to your password."
               : confirmPassword !== password
                 ? "Those passwords don't match."
-                : !agreed
-                  ? "Please accept the Terms of Service and Privacy Policy."
-                  : ""
+                : ""
 
     setError(problem)
     if (problem) return
@@ -140,7 +136,7 @@ function SignupPage() {
           <span className="text-[1.0625rem] font-semibold tracking-tight">ForenScreen</span>
         </Link>
 
-        <Card className="gap-0 shadow-sm [--card-spacing:1.75rem]">
+        <Card className="gap-0 p-7 shadow-sm">
           {pendingEmail ? (
             <div className="flex flex-col gap-4">
               <span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
@@ -181,7 +177,7 @@ function SignupPage() {
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} noValidate className="mt-[22px] flex flex-col gap-[18px]">
+                <form onSubmit={handleSubmit} noValidate className="mt-6 flex flex-col gap-5">
             <Field id="display-name" label="Display name" hint="This is what appears on evidence you register.">
               <Input
                 id="display-name"
@@ -195,7 +191,7 @@ function SignupPage() {
                   setDisplayName(event.target.value)
                   setError("")
                 }}
-                className="h-[38px]"
+                className="h-10"
               />
             </Field>
 
@@ -212,7 +208,7 @@ function SignupPage() {
                   setEmail(event.target.value)
                   setError("")
                 }}
-                className="h-[38px]"
+                className="h-10"
               />
             </Field>
 
@@ -228,7 +224,7 @@ function SignupPage() {
                   setPassword(event.target.value)
                   setError("")
                 }}
-                className="h-[38px]"
+                className="h-10"
               />
               {password.length > 0 && (
                 <div
@@ -269,37 +265,9 @@ function SignupPage() {
                   setConfirmPassword(event.target.value)
                   setError("")
                 }}
-                className="h-[38px]"
+                className="h-10"
               />
             </Field>
-
-            <div className="flex items-start gap-2.5 pt-0.5">
-              <Checkbox
-                id="terms"
-                checked={agreed}
-                disabled={submitting}
-                onCheckedChange={(checked) => {
-                  setAgreed(checked === true)
-                  setError("")
-                }}
-                className="mt-0.5 after:hidden"
-              />
-              <Label
-                htmlFor="terms"
-                className="items-start text-[0.8125rem] leading-relaxed font-normal text-muted-foreground"
-              >
-                <span>
-                  I agree to the{" "}
-                  <a href="#" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a href="#" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
-                    Privacy Policy
-                  </a>
-                </span>
-              </Label>
-            </div>
 
             {error && (
               <p role="alert" className="text-sm text-destructive">
@@ -312,7 +280,7 @@ function SignupPage() {
               size="lg"
               disabled={submitting}
               aria-busy={submitting}
-              className="h-10 w-full gap-2 text-[0.9375rem]"
+              className="mt-1 h-11 w-full gap-2 text-[0.9375rem]"
             >
               {submitting ? (
                 <>
