@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
-  Folder,
   Puzzle,
   Image as ImageIcon,
   LayoutDashboard,
@@ -23,7 +22,6 @@ import { cn } from "@/lib/utils";
 const WORKSPACE_NAV = [
   { to: "/dashboard", label: "Overview", Icon: LayoutDashboard },
   { to: "/assets", label: "Registry", Icon: ImageIcon },
-  { to: "/cases", label: "Cases", Icon: Folder },
   { to: "/analyze", label: "Analyze", Icon: Scale },
 ];
 
@@ -245,15 +243,6 @@ export default function AppShell() {
             </span>
             <span className="text-[0.9375rem] font-semibold tracking-tight">ForenScreen</span>
           </Link>
-
-          <div className="relative hidden max-w-sm flex-1 lg:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              className="h-9 w-full rounded-lg border border-input bg-card pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40"
-              placeholder="Search files, hashes, cases…"
-              aria-label="Search registry"
-            />
-          </div>
 
           <div className="ml-auto flex items-center gap-2">
             {pathname !== "/check" && (

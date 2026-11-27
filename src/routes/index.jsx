@@ -12,7 +12,6 @@ import SharedPage from "@/pages/shared";
 
 import DashboardPage from "@/pages/dashboard";
 import RegistryPage from "@/pages/assets";
-import CasesPage from "@/pages/cases";
 import AnalyzePage from "@/pages/analyze";
 import ComparePage from "@/pages/compare";
 import SettingsPage from "@/pages/settings";
@@ -39,7 +38,6 @@ function AppRoutes() {
       <Route element={<AppShell />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/assets" element={<RegistryPage />} />
-        <Route path="/cases" element={<CasesPage />} />
         <Route path="/analyze" element={<AnalyzePage />} />
         <Route path="/compare/:evidenceId" element={<ComparePage />} />
         <Route path="/settings" element={<SettingsPage />} />
